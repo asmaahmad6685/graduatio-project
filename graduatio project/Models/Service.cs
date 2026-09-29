@@ -2,6 +2,12 @@
 {
     public class Service
     {
+        public int ServiceId { get; set; }
+
+        public int CenterId { get; set; }
+
+        public int SpecialtyId { get; set; }
+
         public string NameArabic { get; set; } = string.Empty;
 
         public string? NameEnglish { get; set; }
