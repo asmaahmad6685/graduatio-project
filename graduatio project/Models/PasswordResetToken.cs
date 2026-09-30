@@ -8,7 +8,7 @@
 
         public string TokenHash { get; set; } = string.Empty;
 
-        public DateTime ExpiresAt { get; set; }
+        public DateTime ExpiresAt { get; set; } 
 
         public DateTime? UsedAt { get; set; }
 
