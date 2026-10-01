@@ -20,6 +20,8 @@
 
         public string? ProfileImageUrl { get; set; }
 
+        public string? WebsiteUrl { get; set; }
+
         public string Status { get; set; } = "Pending";
 
         public string? RejectionReason { get; set; }
@@ -28,6 +30,12 @@
 
         public DateTime? ApprovedAt { get; set; }
 
+        public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+
+        public DateTime? UpdatedAt { get; set; }
+
         public User User { get; set; } = null!;
+
+        public Admin? ApprovedByAdmin { get; set; }
     }
 }

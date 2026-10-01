@@ -8,7 +8,7 @@
 
         public string TextArabic { get; set; } = string.Empty;
 
-        public string? TextEnglish { get; set; }
+        public string TextEnglish { get; set; } = string.Empty;
 
         public int? SpecialtyId { get; set; }
 

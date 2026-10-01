@@ -2,24 +2,34 @@
 {
     public class Therapist
     {
-        public string? Bio { get; set; }
+  
+            public int TherapistId { get; set; }
 
-        public string? ProfileImageUrl { get; set; }
+            public int CenterId { get; set; }
 
-        public int? YearsOfExperience { get; set; }
+            public int SpecialtyId { get; set; }
 
-        public string? Qualifications { get; set; }
+            public string FullName { get; set; } = string.Empty;
 
-        public string? Languages { get; set; }
+            public string? Bio { get; set; }
 
-        public bool IsAvailable { get; set; } = true;
+            public string? ProfileImageUrl { get; set; }
 
-        public bool IsActive { get; set; } = true;
+            public int? YearsOfExperience { get; set; }
 
-        public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+            public string? Qualifications { get; set; }
 
-        public Center Center { get; set; } = null!;
+            public string? Languages { get; set; }
 
-        public Specialty Specialty { get; set; } = null!;
+            public bool IsAvailable { get; set; } = true;
+
+            public bool IsActive { get; set; } = true;
+
+            public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+
+            public Center Center { get; set; } = null!;
+
+            public Specialty Specialty { get; set; } = null!;
+        }
     }
-}
+

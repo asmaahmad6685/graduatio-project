@@ -2,6 +2,10 @@
 {
     public class Review
     {
+        public int ReviewId { get; set; }
+
+        public int PatientId { get; set; }
+
         public int CenterId { get; set; }
 
         public int AppointmentId { get; set; }

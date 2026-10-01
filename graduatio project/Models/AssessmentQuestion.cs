@@ -6,7 +6,7 @@
 
         public string QuestionArabic { get; set; } = string.Empty;
 
-        public string? QuestionEnglish { get; set; }
+        public string QuestionEnglish { get; set; } = string.Empty;
 
         public int DisplayOrder { get; set; }
 
