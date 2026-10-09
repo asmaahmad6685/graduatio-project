@@ -4,8 +4,13 @@
     {
   
             public int TherapistId { get; set; }
+        //  هذا الحقل يربط المعالج بحساب User حتى يقدر يعمل Login
+        public int UserId { get; set; }
 
-            public int CenterId { get; set; }
+        //  Navigation Property تربط Therapist مع User
+        public User User { get; set; } = null!;
+
+        public int CenterId { get; set; }
 
             public int SpecialtyId { get; set; }
 
@@ -30,6 +35,8 @@
             public Center Center { get; set; } = null!;
 
             public Specialty Specialty { get; set; } = null!;
-        }
+
+    
+    }
     }
 

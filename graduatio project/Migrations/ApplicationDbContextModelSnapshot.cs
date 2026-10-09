@@ -298,6 +298,12 @@ namespace graduatio_project.Migrations
                         .HasMaxLength(1500)
                         .HasColumnType("nvarchar(1500)");
 
+                    b.Property<double?>("Latitude")
+                        .HasColumnType("float");
+
+                    b.Property<double?>("Longitude")
+                        .HasColumnType("float");
+
                     b.Property<string>("NameArabic")
                         .IsRequired()
                         .HasMaxLength(200)
@@ -439,20 +445,20 @@ namespace graduatio_project.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("ConversationId"));
 
-                    b.Property<int>("CenterId")
-                        .HasColumnType("int");
-
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime2");
 
                     b.Property<int>("PatientId")
                         .HasColumnType("int");
 
+                    b.Property<int>("TherapistId")
+                        .HasColumnType("int");
+
                     b.HasKey("ConversationId");
 
-                    b.HasIndex("CenterId");
+                    b.HasIndex("TherapistId");
 
-                    b.HasIndex("PatientId", "CenterId")
+                    b.HasIndex("PatientId", "TherapistId")
                         .IsUnique();
 
                     b.ToTable("Conversations");
@@ -773,6 +779,9 @@ namespace graduatio_project.Migrations
                     b.Property<int>("SpecialtyId")
                         .HasColumnType("int");
 
+                    b.Property<int>("UserId")
+                        .HasColumnType("int");
+
                     b.Property<int?>("YearsOfExperience")
                         .HasColumnType("int");
 
@@ -781,6 +790,9 @@ namespace graduatio_project.Migrations
                     b.HasIndex("CenterId");
 
                     b.HasIndex("SpecialtyId");
+
+                    b.HasIndex("UserId")
+                        .IsUnique();
 
                     b.ToTable("Therapists");
                 });
@@ -1053,21 +1065,21 @@ namespace graduatio_project.Migrations
 
             modelBuilder.Entity("graduatio_project.Models.Conversation", b =>
                 {
-                    b.HasOne("graduatio_project.Models.Center", "Center")
-                        .WithMany()
-                        .HasForeignKey("CenterId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
                     b.HasOne("graduatio_project.Models.Patient", "Patient")
                         .WithMany()
                         .HasForeignKey("PatientId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
-                    b.Navigation("Center");
+                    b.HasOne("graduatio_project.Models.Therapist", "Therapist")
+                        .WithMany()
+                        .HasForeignKey("TherapistId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
 
                     b.Navigation("Patient");
+
+                    b.Navigation("Therapist");
                 });
 
             modelBuilder.Entity("graduatio_project.Models.Message", b =>
@@ -1182,9 +1194,17 @@ namespace graduatio_project.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
+                    b.HasOne("graduatio_project.Models.User", "User")
+                        .WithOne()
+                        .HasForeignKey("graduatio_project.Models.Therapist", "UserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
                     b.Navigation("Center");
 
                     b.Navigation("Specialty");
+
+                    b.Navigation("User");
                 });
 
             modelBuilder.Entity("graduatio_project.Models.TherapistSchedule", b =>

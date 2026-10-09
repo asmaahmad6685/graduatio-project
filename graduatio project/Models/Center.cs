@@ -37,5 +37,8 @@
         public User User { get; set; } = null!;
 
         public Admin? ApprovedByAdmin { get; set; }
+
+        public double? Latitude { get; set; }
+        public double? Longitude { get; set; }
     }
 }

@@ -119,6 +119,13 @@ namespace graduatio_project.Data
                 .HasForeignKey(t => t.SpecialtyId)
                 .OnDelete(DeleteBehavior.Restrict);
 
+            // Therapist -> User (One-to-One)
+            modelBuilder.Entity<Therapist>()
+                .HasOne(t => t.User)
+                .WithOne()
+                .HasForeignKey<Therapist>(t => t.UserId)
+                .OnDelete(DeleteBehavior.Restrict);
+
             // TherapistService Composite Primary Key
             modelBuilder.Entity<TherapistService>()
                 .HasKey(ts => new { ts.TherapistId, ts.ServiceId });
@@ -317,11 +324,12 @@ namespace graduatio_project.Data
                 .OnDelete(DeleteBehavior.Restrict);
 
 
-            // Center -> Conversations (One-to-Many)
+            // المعالج الواحد يمكن أن يكون لديه عدة محادثات مع مرضى مختلفين
+            // وكل Conversation ترتبط بمعالج واحد فقط
             modelBuilder.Entity<Conversation>()
-                .HasOne(c => c.Center)
+                .HasOne(c => c.Therapist)
                 .WithMany()
-                .HasForeignKey(c => c.CenterId)
+                .HasForeignKey(c => c.TherapistId)
                 .OnDelete(DeleteBehavior.Restrict);
 
 
@@ -540,7 +548,7 @@ namespace graduatio_project.Data
 
             // Conversation - one conversation between a patient and a center
             modelBuilder.Entity<Conversation>()
-                .HasIndex(c => new { c.PatientId, c.CenterId })
+                .HasIndex(c => new { c.PatientId, c.TherapistId })
                 .IsUnique();
 
 
