@@ -12,6 +12,11 @@
 
         public string? ProfileImageUrl { get; set; }
 
+        public DateOnly? DateOfBirth { get; set; }
+
+        [System.ComponentModel.DataAnnotations.MaxLength(100)]
+        public string? City { get; set; }
+
         public User User { get; set; } = null!;
     }
 }
