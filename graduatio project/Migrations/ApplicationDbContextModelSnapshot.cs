@@ -611,6 +611,24 @@ namespace graduatio_project.Migrations
                     b.ToTable("Patients");
                 });
 
+            modelBuilder.Entity("graduatio_project.Models.PatientSavedCenter", b =>
+                {
+                    b.Property<int>("PatientId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("CenterId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("SavedAt")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("PatientId", "CenterId");
+
+                    b.HasIndex("CenterId");
+
+                    b.ToTable("PatientSavedCenters");
+                });
+
             modelBuilder.Entity("graduatio_project.Models.Review", b =>
                 {
                     b.Property<int>("ReviewId")
@@ -1139,6 +1157,25 @@ namespace graduatio_project.Migrations
                         .IsRequired();
 
                     b.Navigation("User");
+                });
+
+            modelBuilder.Entity("graduatio_project.Models.PatientSavedCenter", b =>
+                {
+                    b.HasOne("graduatio_project.Models.Center", "Center")
+                        .WithMany()
+                        .HasForeignKey("CenterId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("graduatio_project.Models.Patient", "Patient")
+                        .WithMany()
+                        .HasForeignKey("PatientId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Center");
+
+                    b.Navigation("Patient");
                 });
 
             modelBuilder.Entity("graduatio_project.Models.Review", b =>

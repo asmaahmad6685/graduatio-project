@@ -12,6 +12,7 @@ namespace graduatio_project.Data
 
         public DbSet<User> Users { get; set; }
         public DbSet<Patient> Patients { get; set; }
+        public DbSet<PatientSavedCenter> PatientSavedCenters { get; set; }
         public DbSet<Center> Centers { get; set; }
         public DbSet<Admin> Admins { get; set; }
 
@@ -55,6 +56,21 @@ namespace graduatio_project.Data
                 .HasOne(c => c.User)
                 .WithOne()
                 .HasForeignKey<Center>(c => c.UserId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            modelBuilder.Entity<PatientSavedCenter>()
+                .HasKey(sc => new { sc.PatientId, sc.CenterId });
+
+            modelBuilder.Entity<PatientSavedCenter>()
+                .HasOne(sc => sc.Patient)
+                .WithMany()
+                .HasForeignKey(sc => sc.PatientId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            modelBuilder.Entity<PatientSavedCenter>()
+                .HasOne(sc => sc.Center)
+                .WithMany()
+                .HasForeignKey(sc => sc.CenterId)
                 .OnDelete(DeleteBehavior.Restrict);
 
             modelBuilder.Entity<Admin>()
