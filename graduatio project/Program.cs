@@ -27,6 +27,10 @@ namespace graduatio_project
 
             //  ”ÃÌ· TokenService Õ Ï ‰” ÿÌ⁄ ≈‰‘«¡ Access Token œ«Œ· «·‹ Controllers
             builder.Services.AddScoped<TokenService>();
+            builder.Services.AddSingleton(TimeProvider.System);
+            builder.Services.AddSingleton<SchedulingClock>();
+            builder.Services.AddScoped<ScheduleService>();
+            builder.Services.AddScoped<AvailabilityService>();
 
 
             var jwtKey = builder.Configuration["Jwt:Key"];
