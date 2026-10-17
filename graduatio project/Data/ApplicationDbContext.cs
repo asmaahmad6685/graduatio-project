@@ -287,6 +287,10 @@ namespace graduatio_project.Data
 
             // Assessment -> Answers (One-to-Many)
             modelBuilder.Entity<AssessmentAnswer>()
+                .Property(a => a.OtherDescription)
+                .HasMaxLength(500);
+
+            modelBuilder.Entity<AssessmentAnswer>()
                 .HasOne(a => a.Assessment)
                 .WithMany()
                 .HasForeignKey(a => a.AssessmentId)

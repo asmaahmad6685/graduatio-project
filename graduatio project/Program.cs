@@ -27,6 +27,7 @@ namespace graduatio_project
 
             //  ”ÃÌ· TokenService Õ Ï ‰” ÿÌ⁄ ≈‰‘«¡ Access Token œ«Œ· «·‹ Controllers
             builder.Services.AddScoped<TokenService>();
+            builder.Services.AddScoped<AssessmentService>();
 
 
             var jwtKey = builder.Configuration["Jwt:Key"];
