@@ -31,6 +31,8 @@ namespace graduatio_project
             builder.Services.AddSingleton<SchedulingClock>();
             builder.Services.AddScoped<ScheduleService>();
             builder.Services.AddScoped<AvailabilityService>();
+            builder.Services.AddScoped<SchedulingWriteCoordinator>();
+            builder.Services.AddScoped<AppointmentService>();
 
 
             var jwtKey = builder.Configuration["Jwt:Key"];

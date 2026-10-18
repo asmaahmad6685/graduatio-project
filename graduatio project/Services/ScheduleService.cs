@@ -1,21 +1,20 @@
 using System.ComponentModel.DataAnnotations;
-using System.Data;
 using graduatio_project.Data;
 using graduatio_project.DTOs.Schedules;
 using graduatio_project.Models;
-using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 
 namespace graduatio_project.Services;
 
 public sealed class ScheduleService
 {
-    private static readonly SemaphoreSlim WriteLock = new(1, 1);
     private readonly ApplicationDbContext _context;
+    private readonly SchedulingWriteCoordinator _writes;
 
-    public ScheduleService(ApplicationDbContext context)
+    public ScheduleService(ApplicationDbContext context, SchedulingWriteCoordinator writes)
     {
         _context = context;
+        _writes = writes;
     }
 
     public Task<int?> ResolveCenterIdAsync(int userId, CancellationToken cancellationToken = default) =>
@@ -201,48 +200,8 @@ public sealed class ScheduleService
         }
     }
 
-    private async Task<T> WriteAsync<T>(int therapistId, Func<Task<T>> operation, CancellationToken cancellationToken)
-    {
-        await WriteLock.WaitAsync(cancellationToken);
-        try
-        {
-            await using var transaction = await _context.Database.BeginTransactionAsync(IsolationLevel.Serializable, cancellationToken);
-            if (_context.Database.IsSqlServer())
-            {
-                var lockName = $"PhysioGuide.TherapistSchedules.{therapistId}";
-                await _context.Database.ExecuteSqlInterpolatedAsync($"""
-                    DECLARE @result int;
-                    EXEC @result = sys.sp_getapplock
-                        @Resource = {lockName},
-                        @LockMode = N'Exclusive',
-                        @LockOwner = N'Transaction',
-                        @LockTimeout = 15000;
-                    IF @result < 0
-                        THROW 51001, 'Therapist schedule lock could not be acquired.', 1;
-                    """, cancellationToken);
-            }
-
-            var result = await operation();
-            await transaction.CommitAsync(cancellationToken);
-            return result;
-        }
-        catch (DbUpdateConcurrencyException)
-        {
-            throw new SchedulingConflictException("The schedule changed concurrently. Reload the schedule and try again.");
-        }
-        catch (DbUpdateException)
-        {
-            throw new SchedulingConflictException("The schedule could not be saved because related data changed. Reload the schedule and try again.");
-        }
-        catch (SqlException exception) when (exception.Number is 1205 or 1222 or 2601 or 2627 or 3960 or 51001)
-        {
-            throw new SchedulingConflictException("The schedule could not be changed concurrently. Reload the schedule and try again.");
-        }
-        finally
-        {
-            WriteLock.Release();
-        }
-    }
+    private Task<T> WriteAsync<T>(int therapistId, Func<Task<T>> operation, CancellationToken cancellationToken) =>
+        _writes.ExecuteAsync([therapistId], [], operation, cancellationToken);
 }
 
 public sealed class SchedulingValidationException : Exception

@@ -15,8 +15,16 @@ public sealed class AvailabilityService
         _clock = clock;
     }
 
-    public async Task<AvailabilityResponseDto> GetAsync(int therapistId, int serviceId, DateOnly date,
-        CancellationToken cancellationToken = default)
+    public Task<AvailabilityResponseDto> GetAsync(int therapistId, int serviceId, DateOnly date,
+        CancellationToken cancellationToken = default) =>
+        CalculateAsync(therapistId, serviceId, date, null, cancellationToken);
+
+    internal Task<AvailabilityResponseDto> GetForBookingAsync(int therapistId, int serviceId, DateOnly date,
+        int? excludedAppointmentId, CancellationToken cancellationToken = default) =>
+        CalculateAsync(therapistId, serviceId, date, excludedAppointmentId, cancellationToken);
+
+    private async Task<AvailabilityResponseDto> CalculateAsync(int therapistId, int serviceId, DateOnly date,
+        int? excludedAppointmentId, CancellationToken cancellationToken)
     {
         var now = _clock.Now;
         var today = DateOnly.FromDateTime(now);
@@ -66,6 +74,7 @@ public sealed class AvailabilityService
         // UPPER is translated by both SQL Server and SQLite for case-insensitive status matching.
         var appointments = await _context.Appointments.AsNoTracking().Where(value =>
             value.TherapistId == therapistId
+            && (!excludedAppointmentId.HasValue || value.AppointmentId != excludedAppointmentId.Value)
             && (value.Status.ToUpper() == "PENDING" || value.Status.ToUpper() == "CONFIRMED")
             && value.StartDateTime < dayEnd
             && (value.EndDateTime > earliestEnd || value.StartDateTime > earliestStart))
