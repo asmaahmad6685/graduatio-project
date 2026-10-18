@@ -13,10 +13,18 @@ namespace graduatio_project
         public static void Main(string[] args)
         {
             var builder = WebApplication.CreateBuilder(args);
+            const string localFrontendCorsPolicy = "LocalFrontend";
 
             // Add services to the container.
 
             builder.Services.AddControllers();
+            builder.Services.AddCors(options =>
+            {
+                options.AddPolicy(localFrontendCorsPolicy, policy =>
+                    policy.WithOrigins("http://localhost:5173", "http://127.0.0.1:5173")
+                        .WithMethods("GET", "HEAD", "POST", "PUT", "PATCH", "DELETE", "OPTIONS")
+                        .AllowAnyHeader());
+            });
             builder.Services.AddDbContext<ApplicationDbContext>(options =>
     options.UseSqlServer(
         builder.Configuration.GetConnectionString("PhysioGuideConnection")
@@ -98,6 +106,11 @@ namespace graduatio_project
             }
 
             app.UseHttpsRedirection();
+            app.UseRouting();
+            if (app.Environment.IsDevelopment())
+            {
+                app.UseCors(localFrontendCorsPolicy);
+            }
             app.UseAuthentication();
 
             app.UseAuthorization();
