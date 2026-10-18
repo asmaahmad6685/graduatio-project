@@ -27,6 +27,7 @@ namespace graduatio_project
 
             //  ”ÃÌ· TokenService Õ Ï ‰” ÿÌ⁄ ≈‰‘«¡ Access Token œ«Œ· «·‹ Controllers
             builder.Services.AddScoped<TokenService>();
+            builder.Services.AddScoped<AssessmentService>();
             builder.Services.AddSingleton(TimeProvider.System);
             builder.Services.AddSingleton<SchedulingClock>();
             builder.Services.AddScoped<ScheduleService>();

@@ -181,8 +181,15 @@ namespace graduatio_project.Migrations
                     b.Property<int>("AssessmentId")
                         .HasColumnType("int");
 
+                    b.Property<int?>("NumericValue")
+                        .HasColumnType("int");
+
                     b.Property<int?>("OptionId")
                         .HasColumnType("int");
+
+                    b.Property<string>("OtherDescription")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
 
                     b.Property<int>("QuestionId")
                         .HasColumnType("int");
