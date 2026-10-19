@@ -317,7 +317,7 @@ namespace graduatio_project.Controllers
         // ملاحظة: هذا الـ API يستقبل إيميل المستخدم عندما يضغط Forgot Password
         // ويتأكد أولاً إذا كان هناك حساب مسجل بهذا الإيميل
         [AllowAnonymous]
-        [HttpPost("forgot-password")]
+        [NonAction] // Password recovery is disabled; this method is not an HTTP action.
         public async Task<IActionResult> ForgotPassword(ForgotPasswordDto dto)
         {
             //  نبحث عن المستخدم في جدول Users باستخدام الإيميل
@@ -367,7 +367,7 @@ namespace graduatio_project.Controllers
 
             // ملاحظة: هذا الـ API يستخدم الـ Reset Token لتعيين كلمة مرور جديدة
             [AllowAnonymous]
-            [HttpPost("reset-password")]
+            [NonAction] // Password recovery is disabled; this method is not an HTTP action.
             public async Task<IActionResult> ResetPassword(ResetPasswordDto dto)
             {
                 // ملاحظة: نعمل Hash للـ Token التي أرسلها المستخدم
