@@ -293,6 +293,32 @@ namespace graduatio_project.Controllers
                     });
                 }
             }
+            if (user.Role == "Therapist")
+            {
+                var therapist = await _context.Therapists
+                    .AsNoTracking()
+                    .Include(t => t.Center)
+                    .ThenInclude(c => c.User)
+                    .FirstOrDefaultAsync(t => t.UserId == user.UserId);
+
+                if (therapist == null || !therapist.IsActive)
+                {
+                    return StatusCode(403, new
+                    {
+                        message = "This therapist account cannot sign in."
+                    });
+                }
+
+                if (therapist.Center == null || therapist.Center.User == null
+                    || !therapist.Center.User.IsActive || therapist.Center.Status != "Approved")
+                {
+                    return StatusCode(403, new
+                    {
+                        message = "Your center must be approved and active before you can sign in."
+                    });
+                }
+            }
+
             //  بعد نجاح جميع فحوصات تسجيل الدخول
             // ننشئ Access Token تحتوي على UserId و Role
             var token = _tokenService.CreateToken(
