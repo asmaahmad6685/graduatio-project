@@ -101,13 +101,10 @@ namespace graduatio_project.Controllers
 
             _context.Users.Add(therapistUser);
 
-            //  نحفظ الـ User أولاً حتى نحصل على UserId
-            await _context.SaveChangesAsync();
-
             //  ننشئ Therapist Profile ونربطه بحساب الـ User وبالمركز الحالي
             var therapist = new Therapist
             {
-                UserId = therapistUser.UserId,
+                User = therapistUser,
                 CenterId = center.CenterId,
                 SpecialtyId = dto.SpecialtyId,
                 FullName = dto.FullName,
@@ -122,7 +119,7 @@ namespace graduatio_project.Controllers
 
             _context.Therapists.Add(therapist);
 
-            //  نحفظ بيانات الـ Therapist في قاعدة البيانات
+            // Save the User and Therapist together in EF Core's automatic transaction.
             await _context.SaveChangesAsync();
 
             //  نرجع Response للـ Frontend بعد نجاح الإضافة
