@@ -11,6 +11,7 @@ namespace graduatio_project.Data
         }
 
         public DbSet<User> Users { get; set; }
+        public DbSet<ExternalLogin> ExternalLogins { get; set; }
         public DbSet<Patient> Patients { get; set; }
         public DbSet<PatientSavedCenter> PatientSavedCenters { get; set; }
         public DbSet<Center> Centers { get; set; }
@@ -45,6 +46,30 @@ namespace graduatio_project.Data
     protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);
+
+            modelBuilder.Entity<ExternalLogin>()
+                .HasOne(e => e.User)
+                .WithMany()
+                .HasForeignKey(e => e.UserId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            modelBuilder.Entity<ExternalLogin>()
+                .Property(e => e.Provider)
+                .HasMaxLength(32)
+                .IsRequired();
+
+            modelBuilder.Entity<ExternalLogin>()
+                .Property(e => e.ProviderSubject)
+                .HasMaxLength(255)
+                .IsRequired();
+
+            modelBuilder.Entity<ExternalLogin>()
+                .HasIndex(e => new { e.Provider, e.ProviderSubject })
+                .IsUnique();
+
+            modelBuilder.Entity<ExternalLogin>()
+                .HasIndex(e => new { e.UserId, e.Provider })
+                .IsUnique();
 
             modelBuilder.Entity<Patient>()
                 .HasOne(p => p.User)

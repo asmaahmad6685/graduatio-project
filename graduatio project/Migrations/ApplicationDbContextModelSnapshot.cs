@@ -464,6 +464,41 @@ namespace graduatio_project.Migrations
                     b.ToTable("Conversations");
                 });
 
+            modelBuilder.Entity("graduatio_project.Models.ExternalLogin", b =>
+                {
+                    b.Property<int>("ExternalLoginId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("ExternalLoginId"));
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Provider")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("nvarchar(32)");
+
+                    b.Property<string>("ProviderSubject")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("nvarchar(255)");
+
+                    b.Property<int>("UserId")
+                        .HasColumnType("int");
+
+                    b.HasKey("ExternalLoginId");
+
+                    b.HasIndex("Provider", "ProviderSubject")
+                        .IsUnique();
+
+                    b.HasIndex("UserId", "Provider")
+                        .IsUnique();
+
+                    b.ToTable("ExternalLogins");
+                });
+
             modelBuilder.Entity("graduatio_project.Models.Message", b =>
                 {
                     b.Property<int>("MessageId")
@@ -887,7 +922,6 @@ namespace graduatio_project.Migrations
                         .HasColumnType("bit");
 
                     b.Property<string>("PasswordHash")
-                        .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("PhoneNumber")
@@ -1105,6 +1139,17 @@ namespace graduatio_project.Migrations
                     b.Navigation("Patient");
 
                     b.Navigation("Therapist");
+                });
+
+            modelBuilder.Entity("graduatio_project.Models.ExternalLogin", b =>
+                {
+                    b.HasOne("graduatio_project.Models.User", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("User");
                 });
 
             modelBuilder.Entity("graduatio_project.Models.Message", b =>

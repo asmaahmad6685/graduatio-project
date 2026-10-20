@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
 using graduatio_project.Services;
+using graduatio_project.Options;
 //  ‰” Œœ„ OpenApi Õ Ï ‰⁄—¯› Swagger ⁄·Ï JWT Authentication
 using Microsoft.OpenApi.Models;
 namespace graduatio_project
@@ -36,8 +37,47 @@ namespace graduatio_project
             //  ”ÃÌ· TokenService Õ Ï ‰” ÿÌ⁄ ≈‰‘«¡ Access Token œ«Œ· «·‹ Controllers
             builder.Services.AddScoped<TokenService>();
 
+            // Disabled until a real Web Client ID is configured. Enabling with
+            // invalid settings fails at startup; existing password auth is untouched.
+            builder.Services.AddOptions<GoogleAuthOptions>()
+                .Bind(builder.Configuration.GetSection(GoogleAuthOptions.SectionName))
+                .Validate(options => !options.Enabled || options.HasValidWebClientId(),
+                    "GoogleAuth:WebClientId must be a configured Google Web Client ID when enabled.")
+                .ValidateOnStart();
+            builder.Services.AddSingleton<GoogleNonceStore>();
+            builder.Services.AddSingleton<TimeProvider>(TimeProvider.System);
+            builder.Services.AddSingleton<IGoogleTokenValidator, GoogleTokenValidator>();
+            builder.Services.AddSingleton<GoogleRegistrationTicketStore>();
+            builder.Services.AddRateLimiter(options =>
+            {
+                options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+                options.OnRejected = async (context, ct) =>
+                {
+                    context.HttpContext.Response.Headers.CacheControl = "no-store";
+                    context.HttpContext.Response.Headers.RetryAfter = "60";
+                    await context.HttpContext.Response.WriteAsJsonAsync(new
+                    {
+                        message = "Too many Google authentication requests. Try again later.",
+                        code = "rate_limit_exceeded"
+                    }, cancellationToken: ct);
+                };
+                options.AddPolicy("GoogleAuth", context =>
+                    System.Threading.RateLimiting.RateLimitPartition.GetFixedWindowLimiter(
+                        context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+                        _ => new System.Threading.RateLimiting.FixedWindowRateLimiterOptions
+                        {
+                            PermitLimit = 20, Window = TimeSpan.FromMinutes(1), QueueLimit = 0,
+                            AutoReplenishment = true
+                        }));
+            });
+
 
             var jwtKey = builder.Configuration["Jwt:Key"];
+            if (string.IsNullOrWhiteSpace(jwtKey) || Encoding.UTF8.GetByteCount(jwtKey) < 32)
+            {
+                throw new InvalidOperationException(
+                    "Jwt:Key must be configured with at least 32 UTF-8 bytes. Use User Secrets in Development or the Jwt__Key environment variable.");
+            }
             var jwtIssuer = builder.Configuration["Jwt:Issuer"];
             var jwtAudience = builder.Configuration["Jwt:Audience"];
 
@@ -111,6 +151,8 @@ namespace graduatio_project
             {
                 app.UseCors(localFrontendCorsPolicy);
             }
+            app.UseRateLimiter();
+
             app.UseAuthentication();
 
             app.UseAuthorization();
