@@ -65,6 +65,15 @@ namespace graduatio_project.Controllers
                 });
             }
 
+            if (center.Status != "Approved" || !await _context.Users
+                .AnyAsync(u => u.UserId == center.UserId && u.IsActive))
+            {
+                return StatusCode(403, new
+                {
+                    message = "Your center must be approved and active to create therapist accounts."
+                });
+            }
+
             //  نتأكد أن الإيميل غير مستخدم مسبقاً
             bool emailExists = await _context.Users
                 .AnyAsync(u => u.Email == dto.Email);
