@@ -1,5 +1,6 @@
 ﻿using graduatio_project.Data;
 using graduatio_project.DTOs.Therapist;
+using graduatio_project.Models;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
@@ -46,7 +47,6 @@ namespace graduatio_project.Controllers
             // ونجيب معها التخصص والمركز
             var therapist = await _context.Therapists
                 .Include(t => t.Specialty)
-                .Include(t => t.Center)
                 .FirstOrDefaultAsync(t => t.UserId == userId);
 
             //  إذا لم نجد بيانات الـ Therapist نرجع Not Found
@@ -55,6 +55,14 @@ namespace graduatio_project.Controllers
                 return NotFound(new
                 {
                     message = "Therapist not found."
+                });
+            }
+
+            if (!await IsEligibleAsync(therapist))
+            {
+                return StatusCode(403, new
+                {
+                    message = "This therapist account is not eligible to access its profile."
                 });
             }
 
@@ -118,6 +126,14 @@ namespace graduatio_project.Controllers
                 });
             }
 
+            if (!await IsEligibleAsync(therapist))
+            {
+                return StatusCode(403, new
+                {
+                    message = "This therapist account is not eligible to access its profile."
+                });
+            }
+
             // نتأكد أن الـ Specialty الجديدة موجودة فعلاً
             bool specialtyExists = await _context.Specialties
                 .AnyAsync(s => s.SpecialtyId == dto.SpecialtyId);
@@ -149,6 +165,30 @@ namespace graduatio_project.Controllers
                 message = "Therapist profile updated successfully."
             });
 
+        }
+
+        private async Task<bool> IsEligibleAsync(Therapist therapist)
+        {
+            if (!therapist.IsActive || !await _context.Users
+                .AnyAsync(u => u.UserId == therapist.UserId && u.IsActive))
+            {
+                return false;
+            }
+
+            // Load separately so a missing Center/account cannot hide an existing
+            // Therapist in the initial profile query. Reuse it in the GET response.
+            var center = await _context.Centers
+                .Include(c => c.User)
+                .FirstOrDefaultAsync(c => c.CenterId == therapist.CenterId);
+
+            if (center == null || center.User == null || !center.User.IsActive
+                || center.Status != "Approved")
+            {
+                return false;
+            }
+
+            therapist.Center = center;
+            return true;
         }
     }
 }
