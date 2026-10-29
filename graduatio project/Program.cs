@@ -40,6 +40,13 @@ namespace graduatio_project
 
             // ����� TokenService ��� ������ ����� Access Token ���� ��� Controllers
             builder.Services.AddScoped<TokenService>();
+            builder.Services.AddScoped<AssessmentService>();
+            builder.Services.AddSingleton(TimeProvider.System);
+            builder.Services.AddSingleton<SchedulingClock>();
+            builder.Services.AddScoped<ScheduleService>();
+            builder.Services.AddScoped<AvailabilityService>();
+            builder.Services.AddScoped<SchedulingWriteCoordinator>();
+            builder.Services.AddScoped<AppointmentService>();
 
 
             //  نحن لن نسجّل خروجًا من الخادم بحذف الجلسة لأن الـ JWT stateless
