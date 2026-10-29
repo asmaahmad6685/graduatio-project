@@ -50,6 +50,13 @@ namespace graduatio_project
 
             // ����� TokenService ��� ������ ����� Access Token ���� ��� Controllers
             builder.Services.AddScoped<TokenService>();
+            builder.Services.AddScoped<AssessmentService>();
+            builder.Services.AddSingleton(TimeProvider.System);
+            builder.Services.AddSingleton<SchedulingClock>();
+            builder.Services.AddScoped<ScheduleService>();
+            builder.Services.AddScoped<AvailabilityService>();
+            builder.Services.AddScoped<SchedulingWriteCoordinator>();
+            builder.Services.AddScoped<AppointmentService>();
 
             // Disabled until a real Web Client ID is configured. Enabling with
             // invalid settings fails at startup; existing password auth is untouched.
