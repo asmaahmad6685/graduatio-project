@@ -20,6 +20,11 @@
 
         public DateTime? UpdatedAt { get; set; }
 
+        //  رد المركز على تقييم المريض
+        public string? Reply { get; set; }
+
+        public DateTime? RepliedAt { get; set; }
+
         public Patient Patient { get; set; } = null!;
 
         public Center Center { get; set; } = null!;

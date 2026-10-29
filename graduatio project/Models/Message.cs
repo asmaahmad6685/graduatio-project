@@ -12,6 +12,9 @@
 
         public bool IsRead { get; set; } = false;
 
+        //  رابط مرفق اختياري بنفس صيغة رابط الصور: /uploads/...
+        public string? AttachmentUrl { get; set; }
+
         public DateTime SentAt { get; set; } = DateTime.UtcNow;
 
         public Conversation Conversation { get; set; } = null!;

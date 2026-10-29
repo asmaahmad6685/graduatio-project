@@ -40,6 +40,12 @@ namespace graduatio_project.Data
         public DbSet<Message> Messages { get; set; }
 
         public DbSet<PasswordResetToken> PasswordResetTokens { get; set; }
+
+        public DbSet<RefreshToken> RefreshTokens { get; set; }
+
+        public DbSet<NotificationPreference> NotificationPreferences { get; set; }
+
+        public DbSet<PatientNote> PatientNotes { get; set; }
     
     protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -601,7 +607,71 @@ namespace graduatio_project.Data
                 .HasMaxLength(500)
                 .IsRequired();
 
-             
+            // Refresh Token Constraints
+            modelBuilder.Entity<RefreshToken>()
+                .HasKey(r => r.RefreshTokenId);
+
+            modelBuilder.Entity<RefreshToken>()
+                .HasIndex(r => r.TokenHash)
+                .IsUnique();
+
+            modelBuilder.Entity<RefreshToken>()
+                .Property(r => r.TokenHash)
+                .HasMaxLength(64)
+                .IsRequired();
+
+            modelBuilder.Entity<RefreshToken>()
+                .Property(r => r.DeviceInfo)
+                .HasMaxLength(200);
+
+            modelBuilder.Entity<RefreshToken>()
+                .HasOne(r => r.User)
+                .WithMany()
+                .HasForeignKey(r => r.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            // Notification Preference Constraints (one row per user)
+            modelBuilder.Entity<NotificationPreference>()
+                .HasKey(p => p.NotificationPreferenceId);
+
+            modelBuilder.Entity<NotificationPreference>()
+                .HasIndex(p => p.UserId)
+                .IsUnique();
+
+            modelBuilder.Entity<NotificationPreference>()
+                .Property(p => p.Language)
+                .HasMaxLength(10)
+                .IsRequired();
+
+            modelBuilder.Entity<NotificationPreference>()
+                .HasOne(p => p.User)
+                .WithMany()
+                .HasForeignKey(p => p.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            // Patient Note Constraints (center staff notes on a patient)
+            modelBuilder.Entity<PatientNote>()
+                .HasKey(n => n.PatientNoteId);
+
+            modelBuilder.Entity<PatientNote>()
+                .Property(n => n.Text)
+                .HasMaxLength(2000)
+                .IsRequired();
+
+            modelBuilder.Entity<PatientNote>()
+                .HasIndex(n => new { n.CenterId, n.PatientId });
+
+            modelBuilder.Entity<PatientNote>()
+                .HasOne(n => n.Center)
+                .WithMany()
+                .HasForeignKey(n => n.CenterId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            modelBuilder.Entity<PatientNote>()
+                .HasOne(n => n.Patient)
+                .WithMany()
+                .HasForeignKey(n => n.PatientId)
+                .OnDelete(DeleteBehavior.Restrict);
         }
     }
 }

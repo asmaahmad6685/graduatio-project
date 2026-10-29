@@ -16,9 +16,22 @@ namespace graduatio_project.Services
         {
             _configuration = configuration;
 
+        }        //  هذه الدالة تنشئ Access Token للمستخدم بعد نجاح تسجيل الدخول
+        //  وتضع داخلها UserId و Role حتى نعرف هوية المستخدم وصلاحياته
+
+        //  مدة صلاحية الـ Access Token بالثواني
+        //  نعيدها في استجابة تسجيل الدخول والتجديد حتى يعرف الواجهة متى تجدّد
+        public int AccessTokenLifetimeSeconds
+        {
+            get
+            {
+                var minutes = int.Parse(
+                    _configuration["Jwt:ExpireMinutes"] ?? "60"
+                );
+                return minutes * 60;
+            }
         }
-        // هذه الدالة تنشئ Access Token للمستخدم بعد نجاح تسجيل الدخول
-        // وتضع داخلها UserId و Role حتى نعرف هوية المستخدم وصلاحياته
+
         public string CreateToken(int userId, string role)
         {
             //  نقرأ إعدادات JWT من appsettings.json

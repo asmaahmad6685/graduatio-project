@@ -17,6 +17,8 @@ namespace graduatio_project.DTOs.Auth
         //  رقم هاتف المركز إجباري وأقصى طول له 20 حرف
         [Required]
         [MaxLength(20)]
+        [RegularExpression(@"^\+?[0-9()\-\s]{7,20}$",
+            ErrorMessage = "PhoneNumber must be a valid phone number.")]
         public string PhoneNumber { get; set; } = string.Empty;
 
         //  هذا هو الموقع الذي يدخله المركز في حقل Center location في واجهة التسجيل

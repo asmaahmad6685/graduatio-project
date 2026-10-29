@@ -16,8 +16,11 @@ namespace graduatio_project.DTOs.Auth
         public string Email { get; set; } = string.Empty;
 
         //  رقم الهاتف إجباري وأقصى طول له 20 حرف
+        //  ونتحقق أنه رقم حقيقي بمقتضاها الدولي اختياري
         [Required]
         [MaxLength(20)]
+        [RegularExpression(@"^\+?[0-9()\-\s]{7,20}$",
+            ErrorMessage = "PhoneNumber must be a valid phone number.")]
         public string PhoneNumber { get; set; } = string.Empty;
 
         //  كلمة المرور إجبارية ويجب ألا تقل عن 8 أحرف
@@ -27,8 +30,11 @@ namespace graduatio_project.DTOs.Auth
 
       
 
-        // جنس المريض اختياري، وإذا تم إدخاله فأقصى طول له 20 حرف
+        // جنس المريض اختياري، وإذا تم إدخاله فيجب أن يكون male أو female
+        // نقبل الحالة الكبيرة والصغيرة لأن الواجهة قد ترسل أيًّا منهما
         [MaxLength(20)]
+        [RegularExpression(@"^(?i:male|female)$",
+            ErrorMessage = "Gender must be either male or female.")]
         public string? Gender { get; set; }
 
 

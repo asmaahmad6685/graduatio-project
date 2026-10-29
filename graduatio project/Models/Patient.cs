@@ -12,6 +12,9 @@
 
         public string? ProfileImageUrl { get; set; }
 
+        //  تاريخ الميلاد يظهر في صفحة حساب المريض
+        public DateTime? DateOfBirth { get; set; }
+
         public User User { get; set; } = null!;
     }
 }

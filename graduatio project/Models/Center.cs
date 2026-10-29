@@ -40,5 +40,11 @@
 
         public double? Latitude { get; set; }
         public double? Longitude { get; set; }
+
+        //  هل أكد المركز إحداثياته على الخريطة
+        public bool LocationConfirmed { get; set; } = false;
+
+        //  وقت مراجعة طلب التسجيل من قبل الأدمن (موافقة أو رفض)
+        public DateTime? ReviewedAt { get; set; }
     }
 }

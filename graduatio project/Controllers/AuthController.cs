@@ -22,6 +22,9 @@ using System.Security.Cryptography;
 //  نستخدم Encoding لتحويل النص إلى Bytes عند عمل Hash
 using System.Text;
 
+//  نستخدمها لوضع حدود على عدد محاولات تسجيل الدخول والتسجيل
+using Microsoft.AspNetCore.RateLimiting;
+
 
 namespace graduatio_project.Controllers
 {
@@ -40,18 +43,35 @@ namespace graduatio_project.Controllers
         //  نستخدم TokenService لإنشاء Access Token بعد نجاح تسجيل الدخول
         private readonly TokenService _tokenService;
 
+        //  نستخدمه لإنشاء Refresh Token وتجديده وإلغاؤه
+        private readonly RefreshTokenService _refreshTokenService;
+
         //  ASP.NET Core يرسل لنا هذه الخدمات تلقائيًا
         // عن طريق Dependency Injection
         public AuthController(
             ApplicationDbContext context,
             PasswordService passwordService,
-            TokenService tokenService)
+            TokenService tokenService,
+            RefreshTokenService refreshTokenService)
         {
             _context = context;
             _passwordService = passwordService;
             _tokenService = tokenService;
+            _refreshTokenService = refreshTokenService;
         }
 
+        //  شكل الدور في استجابة الـ API: صغير دائمًا وبالاسم الذي يفهمه الواجهة
+        //  الدور داخل الـ JWT يبقى كما هو حتى لا تتغير صلاحيات [Authorize]
+        private static string MapRole(string role) => role switch
+        {
+            "Patient" => "patient",
+            "Center" => "center",
+            "Therapist" => "physiotherapist",
+            "Admin" => "admin",
+            _ => role.ToLowerInvariant()
+        };
+
+        [EnableRateLimiting("auth-register")]
         [HttpPost("register/patient")]
         public async Task<IActionResult> RegisterPatient(PatientRegisterDto dto)
         {
@@ -59,13 +79,19 @@ namespace graduatio_project.Controllers
             bool emailExists = await _context.Users
                 .AnyAsync(u => u.Email == dto.Email);
 
-            //  إذا كان البريد موجودًا لا نسمح بإنشاء حساب آخر بنفس البريد
+            //  البريد المكرر تعارض منطقي وليست أخطاء تحقق من المدخلات
+            //  لذلك نرجع 409 مع errors حتى تربط الواجهة الخطأ بحقل Email
             if (emailExists)
             {
-                return BadRequest(new
-                {
-                    message = "Email is already registered."
-                });
+                return ApiError.Conflict(
+                    "duplicate_email",
+                    "Email is already registered.",
+                    //  مفتاح القاموس يبقى كما هو بدون تحويل إلى camelCase
+                    //  حتى يطابق اسم الخاصية في الـ C# كما طلب فريق الواجهة
+                    new Dictionary<string, string[]>
+                    {
+                        ["Email"] = new[] { "An account with this email already exists." }
+                    });
             }
 
             // ملاحظة: ننشئ User جديد يحتوي على بيانات الحساب الأساسية
@@ -123,6 +149,7 @@ namespace graduatio_project.Controllers
 
         //  هذا الـ API مسؤول عن إنشاء حساب جديد للمركز
         // الرابط سيكون: POST /api/auth/register/center
+        [EnableRateLimiting("auth-register")]
         [HttpPost("register/center")]
         public async Task<IActionResult> RegisterCenter(CenterRegisterDto dto)
         {
@@ -130,13 +157,19 @@ namespace graduatio_project.Controllers
             bool emailExists = await _context.Users
                 .AnyAsync(u => u.Email == dto.Email);
 
-            //  إذا كان البريد مستخدمًا لا نسمح بإنشاء حساب آخر بنفس البريد
+            //  البريد المكرر تعارض منطقي وليست أخطاء تحقق من المدخلات
+            //  لذلك نرجع 409 مع errors حتى تربط الواجهة الخطأ بحقل Email
             if (emailExists)
             {
-                return BadRequest(new
-                {
-                    message = "Email is already registered."
-                });
+                return ApiError.Conflict(
+                    "duplicate_email",
+                    "Email is already registered.",
+                    //  مفتاح القاموس يبقى كما هو بدون تحويل إلى camelCase
+                    //  حتى يطابق اسم الخاصية في الـ C# كما طلب فريق الواجهة
+                    new Dictionary<string, string[]>
+                    {
+                        ["Email"] = new[] { "An account with this email already exists." }
+                    });
             }
 
             //  ننشئ User جديد يحتوي على بيانات حساب المركز الأساسية
@@ -208,6 +241,7 @@ namespace graduatio_project.Controllers
         }
         //  هذا الـ API مسؤول عن تسجيل دخول المستخدم
         // الرابط سيكون: POST /api/auth/login
+        [EnableRateLimiting("auth-login")]
         [HttpPost("login")]
         public async Task<IActionResult> Login(LoginDto dto)
         {
@@ -215,13 +249,11 @@ namespace graduatio_project.Controllers
             var user = await _context.Users
                 .FirstOrDefaultAsync(u => u.Email == dto.Email);
 
-            //  إذا لم نجد حسابًا بهذا البريد نرجع 401 Unauthorized
+            //  الإيميل غير موجود أو كلمة المرور خاطئة: نرجع نفس الاستجابة بالضبط
+            //  حتى لا يستطيع أحد تخمين الإيميلات المسجلة
             if (user == null)
             {
-                return Unauthorized(new
-                {
-                    message = "Invalid email or password."
-                });
+                return ApiError.Unauthorized("unauthenticated", "Invalid email or password.");
             }
 
             //  نتحقق أن كلمة المرور التي أدخلها المستخدم
@@ -232,21 +264,16 @@ namespace graduatio_project.Controllers
             );
 
             //  إذا كانت كلمة المرور غير صحيحة نرجع 401 Unauthorized
+            //  بلا errors حتى تستطيع الواجهة تمييزها من أخطاء التحقق
             if (!passwordIsValid)
             {
-                return Unauthorized(new
-                {
-                    message = "Invalid email or password."
-                });
+                return ApiError.Unauthorized("unauthenticated", "Invalid email or password.");
             }
             //  نتحقق أن الحساب فعال ومسموح له بتسجيل الدخول
             if (!user.IsActive)
             {
                 //  إذا كان الحساب موقوفًا نمنع تسجيل الدخول
-                return Unauthorized(new
-                {
-                    message = "This account is inactive."
-                });
+                return ApiError.Forbidden("account_not_active", "This account is inactive.");
             }
 
             // ملاحظة: إذا كان المستخدم Center، نتحقق من حالة المركز قبل السماح له بتسجيل الدخول
@@ -259,56 +286,106 @@ namespace graduatio_project.Controllers
                 //  إذا لم نجد بيانات المركز نوقف تسجيل الدخول
                 if (center == null)
                 {
-                    return StatusCode(403, new
-                    {
-                        message = "Center profile not found."
-                    });
+                    return ApiError.Forbidden("center_profile_missing", "Center profile not found.");
                 }
 
                 //  المركز الذي لم تتم الموافقة عليه بعد لا يستطيع تسجيل الدخول
                 if (center.Status == "Pending")
                 {
-                    return StatusCode(403, new
-                    {
-                        message = "Your center account is pending admin approval."
-                    });
+                    return ApiError.Forbidden("account_not_active",
+                        "Your center account is pending admin approval.");
                 }
 
                 //  إذا تم رفض المركز نمنع تسجيل الدخول
                 if (center.Status == "Rejected")
                 {
-                    return StatusCode(403, new
-                    {
-                        message = "Your center account has been rejected.",
-                        rejectionReason = center.RejectionReason
-                    });
+                    return ApiError.Forbidden("account_rejected",
+                        "Your center account has been rejected.",
+                        new { rejectionReason = center.RejectionReason });
                 }
 
                 //  إذا كان المركز موقوفاً نمنع تسجيل الدخول
                 if (center.Status == "Suspended")
                 {
-                    return StatusCode(403, new
-                    {
-                        message = "Your center account is suspended."
-                    });
+                    return ApiError.Forbidden("account_suspended",
+                        "Your center account is suspended.");
                 }
-            }
-            //  بعد نجاح جميع فحوصات تسجيل الدخول
-            // ننشئ Access Token تحتوي على UserId و Role
+            }            //  بعد نجاح جميع فحوصات تسجيل الدخول
+            //  ننشئ Access Token تحتوي على UserId و Role
             var token = _tokenService.CreateToken(
                 user.UserId,
                 user.Role
             );
 
+            //  نصدر Refresh Token ونخزّن في القاعدة فقط الـ Hash منه
+            var refreshToken = await _refreshTokenService.IssueAsync(user.UserId);
+
+            //  نجلب الملف المرتبط بالحساب لنعيد الاسم الكامل ومعرف الدور
+            int? patientId = null;
+            int? centerId = null;
+            int? therapistId = null;
+            var fullName = user.Email;
+
+            if (user.Role == "Patient")
+            {
+                var profile = await _context.Patients
+                    .FirstOrDefaultAsync(p => p.UserId == user.UserId);
+                if (profile != null)
+                {
+                    patientId = profile.PatientId;
+                    fullName = profile.FullName;
+                }
+            }
+            else if (user.Role == "Center")
+            {
+                var profile = await _context.Centers
+                    .FirstOrDefaultAsync(c => c.UserId == user.UserId);
+                if (profile != null)
+                {
+                    centerId = profile.CenterId;
+                    fullName = string.IsNullOrWhiteSpace(profile.NameEnglish)
+                        ? profile.NameArabic
+                        : profile.NameEnglish;
+                }
+            }
+            else if (user.Role == "Therapist")
+            {
+                var profile = await _context.Therapists
+                    .FirstOrDefaultAsync(t => t.UserId == user.UserId);
+                if (profile != null)
+                {
+                    therapistId = profile.TherapistId;
+                    //  الواجهة تحتاج مركز المعالج أيضًا لتوجيهه لبوابته
+                    centerId = profile.CenterId;
+                    fullName = profile.FullName;
+                }
+            }
+            else if (user.Role == "Admin")
+            {
+                var profile = await _context.Admins
+                    .FirstOrDefaultAsync(a => a.UserId == user.UserId);
+                if (profile != null)
+                {
+                    fullName = profile.FullName;
+                }
+            }
+
             //  نرجع للـ Frontend نتيجة تسجيل الدخول
-            // مع الـ Access Token وبيانات المستخدم الأساسية
+            //  ملاحظة: userId يبقى رقمًا كما كان حتى لا ينكسر العقد الحالي
+            //  أما معرفات الدور فتعود نصوصًا كما طلب فريق الواجهة
             return Ok(new
             {
                 message = "Login successful.",
                 accessToken = token,
+                refreshToken,
+                expiresIn = _tokenService.AccessTokenLifetimeSeconds,
                 userId = user.UserId,
+                patientId = patientId?.ToString(),
+                centerId = centerId?.ToString(),
+                therapistId = therapistId?.ToString(),
+                fullName,
                 email = user.Email,
-                role = user.Role
+                role = MapRole(user.Role)
             });
         }
 
@@ -317,6 +394,7 @@ namespace graduatio_project.Controllers
         // ملاحظة: هذا الـ API يستقبل إيميل المستخدم عندما يضغط Forgot Password
         // ويتأكد أولاً إذا كان هناك حساب مسجل بهذا الإيميل
         [AllowAnonymous]
+        [EnableRateLimiting("auth-forgot")]
         [HttpPost("forgot-password")]
         public async Task<IActionResult> ForgotPassword(ForgotPasswordDto dto)
         {
@@ -436,6 +514,113 @@ namespace graduatio_project.Controllers
                     message = "Password reset successfully."
                 });
             }
+
+        //  هذا الـ API يجدد الـ Access Token قبل انتهاء صلاحيته
+        //  الرابط: POST /api/Auth/refresh
+        [AllowAnonymous]
+        [HttpPost("refresh")]
+        public async Task<IActionResult> Refresh(RefreshTokenDto dto)
+        {
+            //  نحاول تجديد التوكن؛ إذا فشل يكون التوكن غير صالح أو مُلغى
+            //  أو أن أحدهم أعاد استخدامه بعد تجديد، وعندها نُلغي كل توكنات المستخدم
+            var rotated = await _refreshTokenService.TryRotateAsync(dto.RefreshToken);
+
+            if (rotated == null)
+            {
+                return ApiError.Unauthorized(
+                    "invalid_refresh_token",
+                    "Refresh token is invalid or has expired.");
+            }
+
+            //  ننشئ Access Token جديد للمستخدم نفسه
+            var user = await _context.Users
+                .FirstOrDefaultAsync(u => u.UserId == rotated.UserId);
+
+            if (user == null || !user.IsActive)
+            {
+                return ApiError.Unauthorized(
+                    "invalid_refresh_token",
+                    "Refresh token is invalid or has expired.");
+            }
+
+            var accessToken = _tokenService.CreateToken(user.UserId, user.Role);
+
+            return Ok(new
+            {
+                message = "Token refreshed successfully.",
+                accessToken,
+                refreshToken = rotated.RawToken,
+                expiresIn = _tokenService.AccessTokenLifetimeSeconds
+            });
+        }
+
+        //  هذا الـ API يُلغي Refresh Token الحالي عند تسجيل الخروج
+        //  الرابط: POST /api/Auth/logout
+        [Authorize]
+        [HttpPost("logout")]
+        public async Task<IActionResult> Logout(LogoutDto dto)
+        {
+            //  إلغاء توكن غير موجود ليس خطأ: الهدف هو أن يصبح الطلب بلا أثر
+            //  لذلك نرجع 204 في الحالتين ليبقى الـ API idempotent
+            if (!string.IsNullOrWhiteSpace(dto.RefreshToken))
+            {
+                await _refreshTokenService.RevokeAsync(dto.RefreshToken);
+            }
+
+            return NoContent();
+        }
+
+        //  هذا الـ API يغيّر كلمة المرور للمستخدم المسجل دخوله
+        //  الرابط: POST /api/Auth/change-password
+        [Authorize]
+        [HttpPost("change-password")]
+        public async Task<IActionResult> ChangePassword(ChangePasswordDto dto)
+        {
+            var userIdClaim = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier);
+            if (userIdClaim == null)
+            {
+                return ApiError.Unauthorized("unauthenticated", "Authentication is required.");
+            }
+
+            if (!int.TryParse(userIdClaim.Value, out var userId))
+            {
+                return ApiError.Unauthorized("unauthenticated", "Authentication is required.");
+            }
+
+            var user = await _context.Users
+                .FirstOrDefaultAsync(u => u.UserId == userId);
+
+            if (user == null)
+            {
+                return ApiError.NotFound("not_found", "User not found.");
+            }
+
+            //  نتحقق من كلمة المرور الحالية قبل أي تغيير
+            if (!_passwordService.VerifyPassword(dto.CurrentPassword, user.PasswordHash))
+            {
+                return ApiError.Validation(
+                    new Dictionary<string, string[]>
+                    {
+                        ["CurrentPassword"] = new[] { "Current password is incorrect." }
+                    },
+                    "Current password is incorrect.");
+            }
+
+            //  نغيّر كلمة المرور ونخزّن الـ Hash فقط
+            user.PasswordHash = _passwordService.HashPassword(dto.NewPassword);
+            user.UpdatedAt = DateTime.UtcNow;
+
+            //  نُلغي كل التوكنات المجدولة حتى تُجبر العملية تسجيل الخروج
+            //  من كل الأجهزة الأخرى
+            await _refreshTokenService.RevokeAllForUserAsync(userId);
+
+            await _context.SaveChangesAsync();
+
+            return Ok(new
+            {
+                message = "Password changed successfully."
+            });
+        }
 
         }
     }
