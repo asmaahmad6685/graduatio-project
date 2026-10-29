@@ -470,6 +470,41 @@ namespace graduatio_project.Migrations
                     b.ToTable("Conversations");
                 });
 
+            modelBuilder.Entity("graduatio_project.Models.ExternalLogin", b =>
+                {
+                    b.Property<int>("ExternalLoginId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("ExternalLoginId"));
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Provider")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("nvarchar(32)");
+
+                    b.Property<string>("ProviderSubject")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("nvarchar(255)");
+
+                    b.Property<int>("UserId")
+                        .HasColumnType("int");
+
+                    b.HasKey("ExternalLoginId");
+
+                    b.HasIndex("Provider", "ProviderSubject")
+                        .IsUnique();
+
+                    b.HasIndex("UserId", "Provider")
+                        .IsUnique();
+
+                    b.ToTable("ExternalLogins");
+                });
+
             modelBuilder.Entity("graduatio_project.Models.Message", b =>
                 {
                     b.Property<int>("MessageId")
@@ -625,8 +660,12 @@ namespace graduatio_project.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("PatientId"));
 
-                    b.Property<DateTime?>("DateOfBirth")
-                        .HasColumnType("datetime2");
+                    b.Property<string>("City")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<DateOnly?>("DateOfBirth")
+                        .HasColumnType("date");
 
                     b.Property<string>("FullName")
                         .IsRequired()
@@ -652,15 +691,9 @@ namespace graduatio_project.Migrations
                     b.ToTable("Patients");
                 });
 
-            modelBuilder.Entity("graduatio_project.Models.PatientNote", b =>
+            modelBuilder.Entity("graduatio_project.Models.PatientSavedCenter", b =>
                 {
-                    b.Property<int>("PatientNoteId")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("PatientNoteId"));
-
-                    b.Property<int>("AuthorUserId")
+                    b.Property<int>("PatientId")
                         .HasColumnType("int");
 
                     b.Property<int>("CenterId")
@@ -726,6 +759,15 @@ namespace graduatio_project.Migrations
                     b.HasIndex("UserId");
 
                     b.ToTable("RefreshTokens");
+                    
+                    b.Property<DateTime>("SavedAt")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("PatientId", "CenterId");
+
+                    b.HasIndex("CenterId");
+
+                    b.ToTable("PatientSavedCenters");
                 });
 
             modelBuilder.Entity("graduatio_project.Models.Review", b =>
@@ -992,7 +1034,6 @@ namespace graduatio_project.Migrations
                         .HasColumnType("bit");
 
                     b.Property<string>("PasswordHash")
-                        .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("PhoneNumber")
@@ -1212,6 +1253,17 @@ namespace graduatio_project.Migrations
                     b.Navigation("Therapist");
                 });
 
+            modelBuilder.Entity("graduatio_project.Models.ExternalLogin", b =>
+                {
+                    b.HasOne("graduatio_project.Models.User", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("User");
+                });
+
             modelBuilder.Entity("graduatio_project.Models.Message", b =>
                 {
                     b.HasOne("graduatio_project.Models.Conversation", "Conversation")
@@ -1275,7 +1327,7 @@ namespace graduatio_project.Migrations
                     b.Navigation("User");
                 });
 
-            modelBuilder.Entity("graduatio_project.Models.PatientNote", b =>
+            modelBuilder.Entity("graduatio_project.Models.PatientSavedCenter", b =>
                 {
                     b.HasOne("graduatio_project.Models.Center", "Center")
                         .WithMany()

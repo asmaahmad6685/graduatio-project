@@ -26,10 +26,11 @@ namespace graduatio_project.DTOs.Therapist
         public int SpecialtyId { get; set; }
 
         //  نبذة تعريفية عن المعالج - اختيارية
-        [MaxLength(1500)]
+        [MaxLength(1000)]
         public string? Bio { get; set; }
 
         //  عدد سنوات الخبرة - اختياري
+        [Range(0, int.MaxValue)]
         public int? YearsOfExperience { get; set; }
 
         //  المؤهلات والشهادات - اختيارية

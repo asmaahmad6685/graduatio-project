@@ -18,8 +18,13 @@ namespace graduatio_project.Services
 
             //  هذه الدالة تستخدم عند تسجيل الدخول
             // للتأكد أن كلمة المرور المدخلة تطابق الـ Hash المخزن في قاعدة البيانات
-            public bool VerifyPassword(string password, string passwordHash)
+            public bool VerifyPassword(string password, string? passwordHash)
             {
+                if (string.IsNullOrEmpty(passwordHash))
+                {
+                    return false;
+                }
+
                 var result = _passwordHasher.VerifyHashedPassword(
                     null!,
                     passwordHash,

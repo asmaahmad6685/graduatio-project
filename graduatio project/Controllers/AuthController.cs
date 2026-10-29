@@ -310,8 +310,35 @@ namespace graduatio_project.Controllers
                     return ApiError.Forbidden("account_suspended",
                         "Your center account is suspended.");
                 }
-            }            //  بعد نجاح جميع فحوصات تسجيل الدخول
-            //  ننشئ Access Token تحتوي على UserId و Role
+            }
+            if (user.Role == "Therapist")
+            {
+                var therapist = await _context.Therapists
+                    .AsNoTracking()
+                    .Include(t => t.Center)
+                    .ThenInclude(c => c.User)
+                    .FirstOrDefaultAsync(t => t.UserId == user.UserId);
+
+                if (therapist == null || !therapist.IsActive)
+                {
+                    return StatusCode(403, new
+                    {
+                        message = "This therapist account cannot sign in."
+                    });
+                }
+
+                if (therapist.Center == null || therapist.Center.User == null
+                    || !therapist.Center.User.IsActive || therapist.Center.Status != "Approved")
+                {
+                    return StatusCode(403, new
+                    {
+                        message = "Your center must be approved and active before you can sign in."
+                    });
+                }
+            }
+
+            //  بعد نجاح جميع فحوصات تسجيل الدخول
+            // ننشئ Access Token تحتوي على UserId و Role
             var token = _tokenService.CreateToken(
                 user.UserId,
                 user.Role
@@ -396,6 +423,7 @@ namespace graduatio_project.Controllers
         [AllowAnonymous]
         [EnableRateLimiting("auth-forgot")]
         [HttpPost("forgot-password")]
+        [NonAction] // Password recovery is disabled; this method is not an HTTP action.
         public async Task<IActionResult> ForgotPassword(ForgotPasswordDto dto)
         {
             //  نبحث عن المستخدم في جدول Users باستخدام الإيميل
@@ -445,7 +473,7 @@ namespace graduatio_project.Controllers
 
             // ملاحظة: هذا الـ API يستخدم الـ Reset Token لتعيين كلمة مرور جديدة
             [AllowAnonymous]
-            [HttpPost("reset-password")]
+            [NonAction] // Password recovery is disabled; this method is not an HTTP action.
             public async Task<IActionResult> ResetPassword(ResetPasswordDto dto)
             {
                 // ملاحظة: نعمل Hash للـ Token التي أرسلها المستخدم
