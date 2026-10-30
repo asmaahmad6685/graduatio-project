@@ -21,7 +21,7 @@ namespace graduatio_project
         public static void Main(string[] args)
         {
             var builder = WebApplication.CreateBuilder(args);
-            const string localFrontendCorsPolicy = "LocalFrontend";
+            //const string localFrontendCorsPolicy = "LocalFrontend";
 
             // Add services to the container.
 
@@ -31,15 +31,16 @@ namespace graduatio_project
             {
                 options.JsonSerializerOptions.Converters.Add(new FlexibleIntConverter());
                 options.JsonSerializerOptions.Converters.Add(new FlexibleNullableIntConverter());
-            })};  
+            });  
 
-            builder.Services.AddCors(options =>
-            {
-                options.AddPolicy(localFrontendCorsPolicy, policy =>
-                    policy.WithOrigins("http://localhost:5173", "http://127.0.0.1:5173")
-                        .WithMethods("GET", "HEAD", "POST", "PUT", "PATCH", "DELETE", "OPTIONS")
-                        .AllowAnyHeader());
-            });
+            // builder.Services.AddCors(options =>
+            // {
+            //     options.AddPolicy(localFrontendCorsPolicy, policy =>
+            //         policy.WithOrigins("http://localhost:5173", "http://127.0.0.1:5173")
+            //             .WithMethods("GET", "HEAD", "POST", "PUT", "PATCH", "DELETE", "OPTIONS")
+            //             .AllowAnyHeader());
+            // });
+
             builder.Services.AddDbContext<ApplicationDbContext>(options =>
                 options.UseSqlServer(
                     builder.Configuration.GetConnectionString("PhysioGuideConnection")
@@ -285,10 +286,10 @@ namespace graduatio_project
 
             app.UseHttpsRedirection();
             app.UseRouting();
-            if (app.Environment.IsDevelopment())
-            {
-                app.UseCors(localFrontendCorsPolicy);
-            }
+            // if (app.Environment.IsDevelopment())
+            // {
+            //     app.UseCors(localFrontendCorsPolicy);
+            // }
             app.UseRateLimiter();
 
             app.UseAuthentication();
@@ -299,6 +300,22 @@ namespace graduatio_project
             app.MapControllers();
 
             app.MapGet("/", () => "Physio Guide API is running!");
+
+            //  تطبيق الـ Migrations تلقائيًا عند التشغيل: بدون هذا السطر
+            //  لا يصل أي تغيير في المخطط إلى القاعدة، وهذا سبب "الجداول غير المسلَّمة"
+            //  إذا فشل التطبيق نطبع الخطأ ونكمل التشغيل حتى لا يوقف مشكلة في المخطط تشغيل الـ API
+            using (var scope = app.Services.CreateScope())
+            {
+                try
+                {
+                    var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+                    db.Database.Migrate();
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"[Migrate] Failed: {ex.Message}");
+                }
+            }
 
             //  ملء القاعدة ببيانات تجريبية عند أول تشغيل فقط
             //  إذا فشل الاتصال نطبع الخطأ ولا نمنع تشغيل الـ API

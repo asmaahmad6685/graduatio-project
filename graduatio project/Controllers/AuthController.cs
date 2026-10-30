@@ -112,6 +112,10 @@ namespace graduatio_project.Controllers
                 IsActive = true
             };
 
+            //  نبدأ معاملة واحدة: حساب كامل يعني User و Patient معًا،
+            //  فلا يجوز أن يُحفظ أحدهما ويفشل الآخر (patientId = null عند الدخول)
+            await using var transaction = await _context.Database.BeginTransactionAsync();
+
             //  نضيف الـ User إلى EF Core ليتم حفظه في جدول Users
             _context.Users.Add(user);
 
@@ -135,15 +139,19 @@ namespace graduatio_project.Controllers
             //  نحفظ بيانات المريض في قاعدة البيانات
             await _context.SaveChangesAsync();
 
+            //  لم يفشل أي خطوتين، نؤكد المعاملة
+            await transaction.CommitAsync();
+
             //  نرجع Response للـ Frontend يخبره أن التسجيل نجح
             // مع بعض بيانات الحساب التي تم إنشاؤها
             return Ok(new
             {
                 message = "Patient registered successfully.",
                 userId = user.UserId,
-                patientId = patient.PatientId,
+                //  المعرفات نصوصًا والدور صغيرًا كما في عقد الـ API
+                patientId = patient.PatientId.ToString(),
                 email = user.Email,
-                role = user.Role
+                role = MapRole(user.Role)
             });
         }
 
@@ -190,6 +198,9 @@ namespace graduatio_project.Controllers
                 IsActive = true
             };
 
+            //  معاملة واحدة حتى لا يبقى حساب Center بدون صف Centers
+            await using var transaction = await _context.Database.BeginTransactionAsync();
+
             //  نضيف حساب المركز إلى جدول Users
             _context.Users.Add(user);
 
@@ -226,15 +237,19 @@ namespace graduatio_project.Controllers
             //  نحفظ بيانات المركز في قاعدة البيانات
             await _context.SaveChangesAsync();
 
+            //  لم يفشل أي خطوتين، نؤكد المعاملة
+            await transaction.CommitAsync();
+
             //  نرجع Response للـ Frontend يؤكد نجاح تسجيل المركز
             // ونوضح أن حالة المركز Pending لأنه ينتظر موافقة الـ Admin
             return Ok(new
             {
                 message = "Center registered successfully and is pending admin approval.",
                 userId = user.UserId,
-                centerId = center.CenterId,
+                //  المعرف نصًا والدور صغيرًا كما في عقد الـ API
+                centerId = center.CenterId.ToString(),
                 email = user.Email,
-                role = user.Role,
+                role = MapRole(user.Role),
                 status = center.Status
             });
 

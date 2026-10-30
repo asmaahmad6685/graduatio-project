@@ -6,13 +6,15 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
+
+// Assis-Work
 namespace graduatio_project.Controllers
 {
     //  اكتشاف المراكز — متاح للجميع بدون تسجيل دخول
     //  الروابط: GET /api/centers
     //           GET /api/centers/{id}
     //           GET /api/centers/{centerId}/slots
-    [Route("api/centers")]
+    [Route("api/[controller]")]
     [ApiController]
     [AllowAnonymous]
     public class CentersController : ControllerBase

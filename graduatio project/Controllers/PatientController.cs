@@ -296,7 +296,9 @@ namespace graduatio_project.Controllers
 
             patient.FullName = dto.FullName.Trim();
             patient.Gender = dto.Gender == null ? null : dto.Gender.ToLowerInvariant();
-            patient.DateOfBirth = dto.DateOfBirth;
+            patient.DateOfBirth = dto.DateOfBirth.HasValue
+                    ? DateOnly.FromDateTime(dto.DateOfBirth.Value)
+                    : null;
             patient.ProfileImageUrl = dto.ProfileImageUrl;
 
             if (dto.PhoneNumber != null)

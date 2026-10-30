@@ -65,7 +65,7 @@ namespace graduatio_project.Data
                     UserId = patientUser.UserId,
                     FullName = "Sara Nablus",
                     Gender = "female",
-                    DateOfBirth = new DateTime(1996, 4, 12),
+                    DateOfBirth = new DateOnly(1996, 4, 12),
                     ProfileImageUrl = "https://i.pravatar.cc/160?img=47"
                 };
                 context.Patients.Add(patient);
