@@ -419,6 +419,24 @@ namespace graduatio_project.Migrations
                     b.ToTable("CenterImages");
                 });
 
+            modelBuilder.Entity("graduatio_project.Models.CenterPatient", b =>
+                {
+                    b.Property<int>("CenterId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("PatientId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("CenterId", "PatientId");
+
+                    b.HasIndex("PatientId");
+
+                    b.ToTable("CenterPatients");
+                });
+
             modelBuilder.Entity("graduatio_project.Models.CenterWorkingHour", b =>
                 {
                     b.Property<int>("WorkingHourId")
@@ -1243,6 +1261,25 @@ namespace graduatio_project.Migrations
                         .IsRequired();
 
                     b.Navigation("Center");
+                });
+
+            modelBuilder.Entity("graduatio_project.Models.CenterPatient", b =>
+                {
+                    b.HasOne("graduatio_project.Models.Center", "Center")
+                        .WithMany()
+                        .HasForeignKey("CenterId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("graduatio_project.Models.Patient", "Patient")
+                        .WithMany()
+                        .HasForeignKey("PatientId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Center");
+
+                    b.Navigation("Patient");
                 });
 
             modelBuilder.Entity("graduatio_project.Models.CenterWorkingHour", b =>

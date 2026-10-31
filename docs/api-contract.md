@@ -413,9 +413,11 @@ All under `/api/center`, `Roles = "Center"`.
 | POST | `/workspace/services` | `SaveServiceDto` → `201` |
 | PUT | `/workspace/services/{serviceId}` | `SaveServiceDto` → `200` |
 | DELETE | `/workspace/services/{serviceId}` | – → `204` (deactivates) |
+| POST | `/therapists` | `CreateTherapistDto` (adds `phoneNumber`) → `200`; creates the login account |
 | PUT | `/workspace/therapists/{therapistId}` | `UpdateTherapistDto` |
 | DELETE | `/workspace/therapists/{therapistId}` | – → `204` (deactivates) |
-| GET | `/workspace/patients` | – |
+| GET/POST | `/workspace/patients` | `CreateCenterPatientDto` → `201` on POST |
+| PUT | `/workspace/patients/{patientId}` | `UpdateCenterPatientDto` → `200` |
 | GET/POST | `/workspace/patients/{patientId}/notes` | `{"text":"…"}` |
 | PUT | `/workspace/appointments/{appointmentId}/status` | `{"status":"approved\|rejected\|cancelled\|completed\|pending","reason"}` |
 | POST | `/workspace/reviews/{reviewId}/reply` | `{"reply":"…"}` |
@@ -423,10 +425,22 @@ All under `/api/center`, `Roles = "Center"`.
 
 `GET /workspace` returns
 `{center, therapists, services, patients, appointments, reviews,
-notifications, conversations, today}` where `center` is the public center
-object **plus** `nameArabic`, `descriptionArabic`, `email`, `phone`,
-`approvalStatus`, `reviewedAt`, `reviewReason`, and `today` is
-`{date, appointmentCount, appointments}` for the server's current date.
+notifications, conversations, specialties, today}` where `center` is the public
+center object **plus** `nameArabic`, `descriptionArabic`, `email`, `phone`,
+`approvalStatus`, `reviewedAt`, `reviewReason`, `specialties` is the active
+`{id, nameEnglish, nameArabic}` catalogue the creation forms choose from, and
+`today` is `{date, appointmentCount, appointments}` for the server's current
+date.
+
+`POST /workspace/patients` creates a `User` (`Role = Patient`, hashed password)
+and a `Patient` in one transaction, then links both to the centre, so the new
+record appears in `GET /workspace` immediately. It returns `201` with
+`{id, name, email, phone, gender, dateOfBirth, imageUrl, status,
+appointmentCount}`; a duplicate email returns `409 duplicate_email` with
+`errors.Email`. `PUT /workspace/patients/{patientId}` updates the same fields
+(no password) and refuses patients that do not belong to the centre. `POST
+/therapists` (`/api/center/therapists`) is the only therapist creation path
+because it also creates the staff login account.
 
 `DELETE` on services/therapists is a **soft delete** (`IsActive = false`):
 both can be referenced by existing appointments and a login account, so the

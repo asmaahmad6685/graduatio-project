@@ -21,6 +21,10 @@ namespace graduatio_project.DTOs.Therapist
         [MinLength(8)]
         public string Password { get; set; } = string.Empty;
 
+        //  رقم هاتف المعالج - اختياري
+        [MaxLength(20)]
+        public string? PhoneNumber { get; set; }
+
         //  التخصص الخاص بالمعالج
         [Required]
         public int SpecialtyId { get; set; }

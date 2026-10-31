@@ -14,6 +14,7 @@ namespace graduatio_project.Data
         public DbSet<ExternalLogin> ExternalLogins { get; set; }
         public DbSet<Patient> Patients { get; set; }
         public DbSet<PatientSavedCenter> PatientSavedCenters { get; set; }
+        public DbSet<CenterPatient> CenterPatients { get; set; }
         public DbSet<Center> Centers { get; set; }
         public DbSet<Admin> Admins { get; set; }
 
@@ -103,6 +104,22 @@ namespace graduatio_project.Data
                 .WithMany()
                 .HasForeignKey(sc => sc.CenterId)
                 .OnDelete(DeleteBehavior.Restrict);
+
+            //  المرضى الذين أضافهم المركز يظهرون في قائمته
+            modelBuilder.Entity<CenterPatient>()
+                .HasKey(cp => new { cp.CenterId, cp.PatientId });
+
+            modelBuilder.Entity<CenterPatient>()
+                .HasOne(cp => cp.Center)
+                .WithMany()
+                .HasForeignKey(cp => cp.CenterId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            modelBuilder.Entity<CenterPatient>()
+                .HasOne(cp => cp.Patient)
+                .WithMany()
+                .HasForeignKey(cp => cp.PatientId)
+                .OnDelete(DeleteBehavior.Cascade);
 
             modelBuilder.Entity<Admin>()
                 .HasOne(a => a.User)

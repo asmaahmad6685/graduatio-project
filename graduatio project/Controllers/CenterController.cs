@@ -103,7 +103,7 @@ namespace graduatio_project.Controllers
             {
                 Email = dto.Email,
                 PasswordHash = _passwordService.HashPassword(dto.Password),
-                PhoneNumber = string.Empty,
+                PhoneNumber = dto.PhoneNumber?.Trim() ?? string.Empty,
                 Role = "Therapist",
                 IsActive = true
             };
@@ -138,6 +138,7 @@ namespace graduatio_project.Controllers
                 therapistId = therapist.TherapistId,
                 userId = therapistUser.UserId,
                 email = therapistUser.Email,
+                phone = therapistUser.PhoneNumber,
                 role = therapistUser.Role
             });
 

@@ -91,6 +91,72 @@ namespace graduatio_project.DTOs.Center
         public bool IsActive { get; set; } = true;
     }
 
+    //  إضافة مريض من مساحة المركز: ينشئ حساب دخول وملف مريض ويربطه بالمركز
+    public class CreateCenterPatientDto
+    {
+        [Required]
+        [MaxLength(150)]
+        public string FullName { get; set; } = string.Empty;
+
+        [Required]
+        [EmailAddress]
+        [MaxLength(256)]
+        public string Email { get; set; } = string.Empty;
+
+        [Required]
+        [MaxLength(20)]
+        public string PhoneNumber { get; set; } = string.Empty;
+
+        //  كلمة المرور التي يستخدمها المريض للدخول إلى حسابه
+        [Required]
+        [MinLength(8)]
+        [MaxLength(100)]
+        public string Password { get; set; } = string.Empty;
+
+        [MaxLength(20)]
+        public string? Gender { get; set; }
+
+        public DateOnly? DateOfBirth { get; set; }
+
+        [MaxLength(500)]
+        public string? ProfileImageUrl { get; set; }
+
+        [MaxLength(100)]
+        public string? City { get; set; }
+
+        public bool IsActive { get; set; } = true;
+    }
+
+    //  تعديل بيانات مريض من مساحة المركز (بدون كلمة المرور)
+    public class UpdateCenterPatientDto
+    {
+        [Required]
+        [MaxLength(150)]
+        public string FullName { get; set; } = string.Empty;
+
+        [Required]
+        [EmailAddress]
+        [MaxLength(256)]
+        public string Email { get; set; } = string.Empty;
+
+        [Required]
+        [MaxLength(20)]
+        public string PhoneNumber { get; set; } = string.Empty;
+
+        [MaxLength(20)]
+        public string? Gender { get; set; }
+
+        public DateOnly? DateOfBirth { get; set; }
+
+        [MaxLength(500)]
+        public string? ProfileImageUrl { get; set; }
+
+        [MaxLength(100)]
+        public string? City { get; set; }
+
+        public bool IsActive { get; set; } = true;
+    }
+
     //  تغيير حالة موعد من مساحة المركز
     public class UpdateAppointmentStatusDto
     {
