@@ -98,6 +98,29 @@ namespace graduatio_project.Controllers
                 });
             }
 
+            //  نتأكد أن جميع الخدمات المطلوبة تعود لهذا المركز قبل إنشاء الحساب
+            List<int>? linkedServiceIds = null;
+            if (dto.ServiceIds is { Count: > 0 })
+            {
+                var requested = dto.ServiceIds.Distinct().ToList();
+                linkedServiceIds = await _context.Services.AsNoTracking()
+                    .Where(service => service.CenterId == center.CenterId && requested.Contains(service.ServiceId))
+                    .Select(service => service.ServiceId)
+                    .ToListAsync();
+
+                if (linkedServiceIds.Count != requested.Count)
+                {
+                    return BadRequest(new
+                    {
+                        message = "One or more services do not belong to this center.",
+                        errors = new Dictionary<string, string[]>
+                        {
+                            ["ServiceIds"] = new[] { "One or more services do not belong to this center." }
+                        }
+                    });
+                }
+            }
+
             //  ننشئ User Account للـ Therapist
             var therapistUser = new User
             {
@@ -127,6 +150,19 @@ namespace graduatio_project.Controllers
             };
 
             _context.Therapists.Add(therapist);
+
+            //  نربط المعالج بالخدمات التي يقدمها من خدمات نفس المركز
+            if (linkedServiceIds != null)
+            {
+                foreach (var serviceId in linkedServiceIds)
+                {
+                    _context.TherapistServices.Add(new TherapistService
+                    {
+                        Therapist = therapist,
+                        ServiceId = serviceId
+                    });
+                }
+            }
 
             // Save the User and Therapist together in EF Core's automatic transaction.
             await _context.SaveChangesAsync();

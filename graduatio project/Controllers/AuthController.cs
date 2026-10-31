@@ -237,6 +237,21 @@ namespace graduatio_project.Controllers
             //  نحفظ بيانات المركز في قاعدة البيانات
             await _context.SaveChangesAsync();
 
+            //  ننشئ ساعات عمل افتراضية لمركز جديد حتى يستطيع ضبط أيام عمل معالجيه
+            // السبت (6) حتى الخميس (4) ساعات العمل نفسها، والجمعة (5) نصف يوم
+            for (var day = DayOfWeek.Sunday; day <= DayOfWeek.Saturday; day++)
+            {
+                _context.CenterWorkingHours.Add(new CenterWorkingHour
+                {
+                    CenterId = center.CenterId,
+                    DayOfWeek = day,
+                    OpeningTime = new TimeOnly(8, 0),
+                    ClosingTime = day == DayOfWeek.Friday ? new TimeOnly(13, 0) : new TimeOnly(17, 0),
+                    IsClosed = false
+                });
+            }
+
+
             //  لم يفشل أي خطوتين، نؤكد المعاملة
             await transaction.CommitAsync();
 

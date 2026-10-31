@@ -48,5 +48,9 @@ namespace graduatio_project.DTOs.Therapist
         //  رابط أو مسار صورة المعالج - اختياري
         [MaxLength(500)]
         public string? ProfileImageUrl { get; set; }
+
+        //  الخدمات التي يقدمها المعالج عند إنشائه - اختياري
+        // ويجب أن تكون جميعها من خدمات نفس المركز
+        public List<int>? ServiceIds { get; set; }
     }
 }

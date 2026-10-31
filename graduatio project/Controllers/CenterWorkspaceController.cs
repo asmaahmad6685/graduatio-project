@@ -1,4 +1,4 @@
-using System.Globalization;
+﻿using System.Globalization;
 using graduatio_project.Data;
 using graduatio_project.DTOs.Center;
 using graduatio_project.Models;
@@ -353,9 +353,22 @@ namespace graduatio_project.Controllers
                 .Where(w => w.CenterId == centerId)
                 .ToListAsync();
 
-            foreach (var hour in existing)
+            //  المراكز المسجلة قد ليس لها صفوف ساعات عمل بعد،
+            // لذلك ننشئ الأيام المفقودة بدل تحديث قائمة فارغة
+            for (var day = DayOfWeek.Sunday; day <= DayOfWeek.Saturday; day++)
             {
-                if (hour.DayOfWeek == DayOfWeek.Friday)
+                var hour = existing.FirstOrDefault(value => value.DayOfWeek == day);
+                if (hour == null)
+                {
+                    hour = new CenterWorkingHour
+                    {
+                        CenterId = centerId,
+                        DayOfWeek = day
+                    };
+                    _context.CenterWorkingHours.Add(hour);
+                }
+
+                if (day == DayOfWeek.Friday)
                 {
                     hour.OpeningTime = fridayStart;
                     hour.ClosingTime = fridayEnd;
