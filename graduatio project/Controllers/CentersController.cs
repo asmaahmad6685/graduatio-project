@@ -14,7 +14,7 @@ namespace graduatio_project.Controllers
     //  الروابط: GET /api/centers
     //           GET /api/centers/{id}
     //           GET /api/centers/{centerId}/slots
-    [Route("api/[controller]")]
+    [Route("api/centers")]
     [ApiController]
     [AllowAnonymous]
     public class CentersController : ControllerBase

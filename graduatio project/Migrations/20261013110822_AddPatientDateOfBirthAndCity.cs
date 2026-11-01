@@ -17,12 +17,6 @@ namespace graduatio_project.Migrations
                 type: "nvarchar(100)",
                 maxLength: 100,
                 nullable: true);
-
-            migrationBuilder.AddColumn<DateOnly>(
-                name: "DateOfBirth",
-                table: "Patients",
-                type: "date",
-                nullable: true);
         }
 
         /// <inheritdoc />
@@ -30,10 +24,6 @@ namespace graduatio_project.Migrations
         {
             migrationBuilder.DropColumn(
                 name: "City",
-                table: "Patients");
-
-            migrationBuilder.DropColumn(
-                name: "DateOfBirth",
                 table: "Patients");
         }
     }
