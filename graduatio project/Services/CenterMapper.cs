@@ -139,12 +139,14 @@ namespace graduatio_project.Services
                     {
                         id = t.TherapistId.ToString(),
                         name = t.FullName,
+                        nameAr = t.FullNameAr,
                         imageUrl = t.ProfileImageUrl,
                         specialty = t.Specialty == null
                             ? null
                             : Pick(t.Specialty.NameEnglish, t.Specialty.NameArabic),
                         experience = t.YearsOfExperience ?? 0,
                         about = t.Bio,
+                        bioAr = t.BioAr,
                         rating = therapistRatings.TryGetValue(t.TherapistId, out var tr)
                             ? tr
                             : (double?)null,

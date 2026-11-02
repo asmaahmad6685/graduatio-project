@@ -178,8 +178,10 @@ namespace graduatio_project.Controllers
                 {
                     id = t.TherapistId.ToString(),
                     name = t.FullName,
+                    nameAr = t.FullNameAr,
                     imageUrl = t.ProfileImageUrl,
                     bio = t.Bio,
+                    bioAr = t.BioAr,
                     email = t.User?.Email,
                     phone = t.User?.PhoneNumber,
                     specialtyId = t.SpecialtyId,
@@ -628,6 +630,8 @@ namespace graduatio_project.Controllers
             therapist.SpecialtyId = dto.SpecialtyId;
             //  النموذج لا يحرر هذه الحقول، فالقيمة null تعني "أبقِ ما هو محفوظ"
             if (dto.Bio != null) therapist.Bio = dto.Bio;
+            if (dto.FullNameAr != null) therapist.FullNameAr = dto.FullNameAr.Trim();
+            if (dto.BioAr != null) therapist.BioAr = dto.BioAr.Trim();
             if (dto.Qualifications != null) therapist.Qualifications = dto.Qualifications;
             if (dto.Languages != null) therapist.Languages = dto.Languages;
             therapist.ProfileImageUrl = dto.ProfileImageUrl;
@@ -679,8 +683,10 @@ namespace graduatio_project.Controllers
             {
                 id = therapist.TherapistId.ToString(),
                 name = therapist.FullName,
+                nameAr = therapist.FullNameAr,
                 specialtyId = therapist.SpecialtyId,
                 bio = therapist.Bio,
+                bioAr = therapist.BioAr,
                 imageUrl = therapist.ProfileImageUrl,
                 experience = therapist.YearsOfExperience ?? 0,
                 credentials = therapist.Qualifications,

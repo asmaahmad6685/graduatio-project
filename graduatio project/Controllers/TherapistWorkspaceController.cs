@@ -136,10 +136,12 @@ namespace graduatio_project.Controllers
                 {
                     id = therapist.TherapistId.ToString(),
                     name = therapist.FullName,
+                    nameAr = therapist.FullNameAr,
                     email = user.Email,
                     phone = user.PhoneNumber,
                     imageUrl = therapist.ProfileImageUrl,
                     bio = therapist.Bio,
+                    bioAr = therapist.BioAr,
                     specialtyId = therapist.SpecialtyId,
                     specialty = specialty == null
                         ? null

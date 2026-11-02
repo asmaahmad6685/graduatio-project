@@ -959,6 +959,10 @@ namespace graduatio_project.Migrations
                         .HasMaxLength(1000)
                         .HasColumnType("nvarchar(1000)");
 
+                    b.Property<string>("BioAr")
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
                     b.Property<int>("CenterId")
                         .HasColumnType("int");
 
@@ -967,6 +971,10 @@ namespace graduatio_project.Migrations
 
                     b.Property<string>("FullName")
                         .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("nvarchar(150)");
+
+                    b.Property<string>("FullNameAr")
                         .HasMaxLength(150)
                         .HasColumnType("nvarchar(150)");
 

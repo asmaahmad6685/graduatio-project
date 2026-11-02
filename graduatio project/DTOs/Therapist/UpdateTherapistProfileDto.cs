@@ -13,9 +13,17 @@ namespace graduatio_project.DTOs.Therapist
         [Required]
         public int SpecialtyId { get; set; }
 
+        //  الاسم الكامل بالعربية - اختياري
+        [MaxLength(150)]
+        public string? FullNameAr { get; set; }
+
         //  نبذة تعريفية عن المعالج - اختيارية
         [MaxLength(1000)]
         public string? Bio { get; set; }
+
+        //  النبذة التعريفية بالعربية - اختيارية
+        [MaxLength(1000)]
+        public string? BioAr { get; set; }
 // رابط أو مسار صورة المعالج - اختياري
         [MaxLength(500)]
         public string? ProfileImageUrl { get; set; }

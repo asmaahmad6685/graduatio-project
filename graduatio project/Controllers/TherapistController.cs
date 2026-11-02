@@ -71,7 +71,9 @@ namespace graduatio_project.Controllers
             {
                 therapistId = therapist.TherapistId,
                 fullName = therapist.FullName,
+                fullNameAr = therapist.FullNameAr,
                 bio = therapist.Bio,
+                bioAr = therapist.BioAr,
                 profileImageUrl = therapist.ProfileImageUrl,
                 yearsOfExperience = therapist.YearsOfExperience,
                 qualifications = therapist.Qualifications,
@@ -148,8 +150,10 @@ namespace graduatio_project.Controllers
 
             //  نحدث بيانات الـ Therapist بالقيم الجديدة
             therapist.FullName = dto.FullName;
+            therapist.FullNameAr = dto.FullNameAr?.Trim();
             therapist.SpecialtyId = dto.SpecialtyId;
             therapist.Bio = dto.Bio;
+            therapist.BioAr = dto.BioAr?.Trim();
             therapist.ProfileImageUrl = dto.ProfileImageUrl;
             therapist.YearsOfExperience = dto.YearsOfExperience;
             therapist.Qualifications = dto.Qualifications;

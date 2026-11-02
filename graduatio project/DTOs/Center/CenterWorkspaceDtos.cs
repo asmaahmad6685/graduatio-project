@@ -189,6 +189,13 @@ namespace graduatio_project.DTOs.Center
         [MaxLength(1000)]
         public string? Bio { get; set; }
 
+        //  null = أبقِ ما هو محفوظ (نفس منطق Bio)
+        [MaxLength(150)]
+        public string? FullNameAr { get; set; }
+
+        [MaxLength(1000)]
+        public string? BioAr { get; set; }
+
         [MaxLength(500)]
         public string? ProfileImageUrl { get; set; }
 

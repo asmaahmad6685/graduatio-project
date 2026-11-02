@@ -36,8 +36,14 @@ namespace graduatio_project.DTOs.Admin
         [Required]
         public int SpecialtyId { get; set; }
 
+        [MaxLength(150)]
+        public string? FullNameAr { get; set; }
+
         [MaxLength(1000)]
         public string? Bio { get; set; }
+
+        [MaxLength(1000)]
+        public string? BioAr { get; set; }
 
         public int? YearsOfExperience { get; set; }
 

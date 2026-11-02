@@ -211,6 +211,7 @@ namespace graduatio_project.Controllers
                 {
                     id = t.TherapistId.ToString(),
                     name = t.FullName,
+                    nameAr = t.FullNameAr,
                     imageUrl = t.ProfileImageUrl,
                     specialty = t.Specialty == null
                         ? null
@@ -221,6 +222,7 @@ namespace graduatio_project.Controllers
                         : CenterMapper.Pick(t.Center.NameEnglish, t.Center.NameArabic),
                     experience = t.YearsOfExperience ?? 0,
                     about = t.Bio,
+                    bioAr = t.BioAr,
                     availability = t.IsAvailable ? "available" : "unavailable"
                 }).ToList(),
                 conversations = conversations.Select(c =>

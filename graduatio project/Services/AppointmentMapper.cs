@@ -41,7 +41,8 @@ namespace graduatio_project.Services
                     serviceName = service == null
                         ? null
                         : CenterMapper.Pick(service.NameEnglish, service.NameArabic),
-                    therapistName = therapist?.FullName
+                    therapistName = therapist?.FullName,
+                    therapistNameAr = therapist?.FullNameAr
                 });
             }
 

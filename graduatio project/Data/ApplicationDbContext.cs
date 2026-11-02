@@ -553,7 +553,15 @@ namespace graduatio_project.Data
                 .IsRequired();
 
             modelBuilder.Entity<Therapist>()
+                .Property(t => t.FullNameAr)
+                .HasMaxLength(150);
+
+            modelBuilder.Entity<Therapist>()
                 .Property(t => t.Bio)
+                .HasMaxLength(1000);
+
+            modelBuilder.Entity<Therapist>()
+                .Property(t => t.BioAr)
                 .HasMaxLength(1000);
 
             modelBuilder.Entity<Therapist>()
