@@ -59,6 +59,9 @@ namespace graduatio_project
             builder.Services.AddScoped<SchedulingWriteCoordinator>();
             builder.Services.AddScoped<AppointmentService>();
 
+            //  دفع فورية للمحادثات: Hub تبث أحداث الرسائل لكل جلسات المستخدم
+            builder.Services.AddSignalR();
+
             // Disabled until a real Web Client ID is configured. Enabling with
             // invalid settings fails at startup; existing password auth is untouched.
             builder.Services.AddOptions<GoogleAuthOptions>()
@@ -130,6 +133,20 @@ namespace graduatio_project
                  //  والواجهة تستطيع من خلاله التمييز بين "التوكن منتهي" و "غير مسجل دخول"
                  options.Events = new JwtBearerEvents
                  {
+                     //  WebSocket وSSE لا يحملان ترويسة Authorization لذلك نقرأ
+                     //  التوكن من استعلام access_token لكن لمسارات الـ Hub فقط
+                     OnMessageReceived = context =>
+                     {
+                         if (context.Request.Path.StartsWithSegments("/hubs"))
+                         {
+                             var accessToken = context.Request.Query["access_token"];
+                             if (!string.IsNullOrEmpty(accessToken))
+                             {
+                                 context.Token = accessToken;
+                             }
+                         }
+                         return Task.CompletedTask;
+                     },
                      OnAuthenticationFailed = context =>
                      {
                          if (context.Exception is SecurityTokenExpiredException)
@@ -298,6 +315,9 @@ namespace graduatio_project
 
 
             app.MapControllers();
+
+            //  مسار الدفع الفورية: الجلسات المتصلة تستقبل أحداث المحادثات فور وقوعها
+            app.MapHub<graduatio_project.Hubs.MessagingHub>("/hubs/messages");
 
             app.MapGet("/", () => "Physio Guide API is running!");
 
