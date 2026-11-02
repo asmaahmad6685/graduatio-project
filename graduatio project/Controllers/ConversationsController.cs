@@ -5,6 +5,7 @@ using graduatio_project.Models;
 using graduatio_project.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 
 namespace graduatio_project.Controllers
@@ -24,6 +25,66 @@ namespace graduatio_project.Controllers
         public ConversationsController(ApplicationDbContext context)
         {
             _context = context;
+        }
+
+        //  فتح محادثة: المريض يفتح محادثة مع معالج — يُنشأ سطر جديد فقط إذا لم يكن موجودًا
+        //  الفهرس الفريد (PatientId, TherapistId) هو الضمان ضد الطلبات المتزامنة
+        [HttpPost]
+        [Authorize(Roles = "Patient")]
+        public async Task<IActionResult> OpenConversation(OpenConversationDto dto, CancellationToken ct)
+        {
+            if (!CurrentUser.TryGetUserId(User, out var userId))
+            {
+                return ApiError.Unauthorized("unauthenticated", "Authentication is required.");
+            }
+
+            var patient = await _context.Patients.AsNoTracking()
+                .FirstOrDefaultAsync(p => p.UserId == userId, ct);
+            if (patient == null)
+            {
+                return ApiError.NotFound("not_found", "Patient profile not found.");
+            }
+
+            var therapist = await _context.Therapists.AsNoTracking()
+                .FirstOrDefaultAsync(t => t.TherapistId == dto.TherapistId, ct);
+            if (therapist == null)
+            {
+                return ApiError.NotFound("not_found", "Physiotherapist not found.");
+            }
+
+            var conversation = await _context.Conversations.AsNoTracking()
+                .FirstOrDefaultAsync(c => c.PatientId == patient.PatientId
+                    && c.TherapistId == therapist.TherapistId, ct);
+
+            if (conversation == null)
+            {
+                conversation = new Conversation
+                {
+                    PatientId = patient.PatientId,
+                    TherapistId = therapist.TherapistId,
+                    CreatedAt = DateTime.UtcNow
+                };
+                _context.Conversations.Add(conversation);
+                try
+                {
+                    await _context.SaveChangesAsync(ct);
+                }
+                catch (DbUpdateException ex) when (ex.InnerException is SqlException { Number: 2601 or 2627 })
+                {
+                    //  طلب متزامن أنشأها أولًا — نعيد قراءة السطر الفائز
+                    conversation = await _context.Conversations.AsNoTracking()
+                        .FirstOrDefaultAsync(c => c.PatientId == patient.PatientId
+                            && c.TherapistId == therapist.TherapistId, ct);
+                    if (conversation == null) throw;
+                }
+            }
+
+            return Ok(new
+            {
+                id = conversation.ConversationId.ToString(),
+                patientId = conversation.PatientId.ToString(),
+                therapistId = conversation.TherapistId.ToString()
+            });
         }
 
         //  فقط طرفا المحادثة يستطيع قراءتها: المريض صاحبها أو المعالج المشارك فيها
@@ -53,7 +114,11 @@ namespace graduatio_project.Controllers
                 query = query.Where(m => m.SentAt > sinceUtc.Value);
             }
 
-            var messages = await query.OrderBy(m => m.SentAt).ToListAsync();
+            //  ThenBy يمنع ترتيبًا عشوائيًا للرسائل المُرسلة في نفس الثانية
+            var messages = await query
+                .OrderBy(m => m.SentAt)
+                .ThenBy(m => m.MessageId)
+                .ToListAsync();
 
             var senderIds = messages.Select(m => m.SenderUserId).Distinct().ToList();
             var emails = await _context.Users.AsNoTracking()
@@ -114,12 +179,24 @@ namespace graduatio_project.Controllers
                 return ApiError.Unauthorized("unauthenticated", "Authentication is required.");
             }
 
+            var text = dto.Text?.Trim() ?? string.Empty;
+            var attachment = string.IsNullOrWhiteSpace(dto.Attachment) ? null : dto.Attachment.Trim();
+
+            //  الرسالة الفارغة تمامًا مرفوضة: نص أو مرفق على الأقل
+            if (text.Length == 0 && attachment == null)
+            {
+                return ApiError.Validation(new Dictionary<string, string[]>
+                {
+                    ["Text"] = new[] { "A message needs text or an attachment." }
+                });
+            }
+
             var message = new Message
             {
                 ConversationId = id,
                 SenderUserId = userId,
-                MessageText = dto.Text.Trim(),
-                AttachmentUrl = string.IsNullOrWhiteSpace(dto.Attachment) ? null : dto.Attachment,
+                MessageText = text,
+                AttachmentUrl = attachment,
                 IsRead = false,
                 SentAt = DateTime.UtcNow
             };

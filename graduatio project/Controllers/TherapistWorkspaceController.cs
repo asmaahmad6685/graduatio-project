@@ -22,10 +22,27 @@ namespace graduatio_project.Controllers
     public class TherapistWorkspaceController : ControllerBase
     {
         private readonly ApplicationDbContext _context;
+        private readonly IWebHostEnvironment _environment;
 
-        public TherapistWorkspaceController(ApplicationDbContext context)
+        public TherapistWorkspaceController(ApplicationDbContext context, IWebHostEnvironment environment)
         {
             _context = context;
+            _environment = environment;
+        }
+
+        //  رفع مرفق رسالة: نفس عقد صورة المريض (حقل file، ٢ ميجابايت، { url })
+        [HttpPost("workspace/images")]
+        [RequestSizeLimit(ImageStorage.MaxBytes + 1024 * 1024)]
+        public async Task<IActionResult> UploadImage(IFormFile? file)
+        {
+            var validation = ImageStorage.Validate(file);
+            if (validation != null)
+            {
+                return validation;
+            }
+
+            var url = await ImageStorage.SaveAsync(file!, _environment);
+            return Ok(new { url });
         }
 
         [HttpGet("workspace")]

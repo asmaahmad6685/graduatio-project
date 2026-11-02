@@ -26,16 +26,30 @@ public sealed class GoogleAuthController : ControllerBase
     private readonly GoogleNonceStore _nonces;
     private readonly GoogleRegistrationTicketStore _tickets;
     private readonly TokenService _tokens;
+    private readonly RefreshTokenService _refreshTokens;
     private readonly GoogleAuthOptions _options;
     private readonly ILogger<GoogleAuthController> _logger;
 
     public GoogleAuthController(ApplicationDbContext db, IGoogleTokenValidator validator,
         GoogleNonceStore nonces, GoogleRegistrationTicketStore tickets, TokenService tokens,
+        RefreshTokenService refreshTokenService,
         IOptions<GoogleAuthOptions> options, ILogger<GoogleAuthController> logger)
     {
         _db = db; _validator = validator; _nonces = nonces; _tickets = tickets;
-        _tokens = tokens; _options = options.Value; _logger = logger;
+        _tokens = tokens; _refreshTokens = refreshTokenService;
+        _options = options.Value; _logger = logger;
     }
+
+    //  شكل الدور في استجابة الـ API: صغير دائمًا وبالاسم الذي يفهمه الواجهة
+    //  (نفس MapRole في AuthController حتى لا تفشل جلسة Google في الواجهة)
+    private static string MapRole(string role) => role switch
+    {
+        "Patient" => "patient",
+        "Center" => "center",
+        "Therapist" => "physiotherapist",
+        "Admin" => "admin",
+        _ => role.ToLowerInvariant()
+    };
 
     [HttpPost("challenge")]
     public Task<IActionResult> Challenge(GoogleChallengeDto dto) => ExecuteAsync(() =>
@@ -59,18 +73,51 @@ public sealed class GoogleAuthController : ControllerBase
         {
             var user = login.User;
             if (!user.IsActive) return Failure(403, "account_unavailable", "This account cannot sign in.");
+
+            //  الاستجابة بنفس شكل تسجيل الدخول بكلمة المرور: Refresh Token ومعرّفات
+            //  الملف الشخصي ودور صغير حتى تعمل الجلسة والوجهات في الواجهة كما هي
             if (user.Role == "Center")
             {
-                if (!await _db.Centers.AnyAsync(c => c.UserId == user.UserId && c.Status == "Approved", ct))
+                var center = await _db.Centers.AsNoTracking()
+                    .FirstOrDefaultAsync(c => c.UserId == user.UserId, ct);
+                if (center == null || center.Status != "Approved")
                     return Failure(403, "center_not_approved", "The center must be approved before signing in.");
+
+                var centerRefresh = await _refreshTokens.IssueAsync(user.UserId);
+                return Ok(new
+                {
+                    message = "Login successful.",
+                    accessToken = _tokens.CreateToken(user.UserId, user.Role),
+                    refreshToken = centerRefresh,
+                    expiresIn = _tokens.AccessTokenLifetimeSeconds,
+                    userId = user.UserId,
+                    centerId = center.CenterId.ToString(),
+                    fullName = string.IsNullOrWhiteSpace(center.NameEnglish) ? center.NameArabic : center.NameEnglish,
+                    email = user.Email,
+                    role = MapRole(user.Role)
+                });
             }
-            else if (user.Role != "Patient" || !await _db.Patients.AnyAsync(p => p.UserId == user.UserId, ct))
+
+            if (user.Role != "Patient")
                 return Failure(403, "account_unavailable", "This account cannot sign in.");
 
+            var patient = await _db.Patients.AsNoTracking()
+                .FirstOrDefaultAsync(p => p.UserId == user.UserId, ct);
+            if (patient == null)
+                return Failure(403, "account_unavailable", "This account cannot sign in.");
+
+            var patientRefresh = await _refreshTokens.IssueAsync(user.UserId);
             return Ok(new
             {
-                message = "Login successful.", accessToken = _tokens.CreateToken(user.UserId, user.Role),
-                userId = user.UserId, email = user.Email, role = user.Role
+                message = "Login successful.",
+                accessToken = _tokens.CreateToken(user.UserId, user.Role),
+                refreshToken = patientRefresh,
+                expiresIn = _tokens.AccessTokenLifetimeSeconds,
+                userId = user.UserId,
+                patientId = patient.PatientId.ToString(),
+                fullName = patient.FullName,
+                email = user.Email,
+                role = MapRole(user.Role)
             });
         }
 
@@ -99,11 +146,14 @@ public sealed class GoogleAuthController : ControllerBase
         await using var transaction = await _db.Database.BeginTransactionAsync(ct);
         await _db.SaveChangesAsync(ct);
         var token = _tokens.CreateToken(user.UserId, user.Role);
+        var refreshToken = await _refreshTokens.IssueAsync(user.UserId);
         await transaction.CommitAsync(ct);
         return StatusCode(201, new
         {
-            message = "Patient registered successfully.", accessToken = token, userId = user.UserId,
-            patientId = patient.PatientId, email = user.Email, role = user.Role
+            message = "Patient registered successfully.", accessToken = token, refreshToken,
+            expiresIn = _tokens.AccessTokenLifetimeSeconds,
+            userId = user.UserId, patientId = patient.PatientId.ToString(),
+            fullName = patient.FullName, email = user.Email, role = MapRole(user.Role)
         });
     });
 
@@ -128,7 +178,8 @@ public sealed class GoogleAuthController : ControllerBase
         return StatusCode(201, new
         {
             message = "Center registered successfully and is pending admin approval.", userId = user.UserId,
-            centerId = center.CenterId, email = user.Email, role = user.Role, status = center.Status
+            centerId = center.CenterId.ToString(), email = user.Email,
+            role = MapRole(user.Role), status = center.Status
         });
     });
 
