@@ -139,8 +139,14 @@ Over the limit → `429` + `Retry-After` + `{"code":"rate_limited",…}`.
 | POST | `/api/Auth/forgot-password` | public (rate limited) |
 | POST | `/api/Auth/reset-password` | public |
 
-**`POST /api/Auth/login`** — request
+**`POST /api/Auth/login?role=patient`** — request
 `{"email":"patient@physioguide.dev","password":"Patient123!"}`
+
+The optional `role` query names the portal the login page belongs to:
+`patient`, `center` (therapists sign in there too) or `admin`. An account that
+belongs to another portal receives the same `401 unauthenticated` body as a
+wrong password, so this endpoint never reveals which portal an email uses.
+Omitting `role` keeps the legacy behaviour.
 
 ```json
 {
@@ -162,7 +168,8 @@ Over the limit → `429` + `Retry-After` + `{"code":"rate_limited",…}`.
 otherwise, so one endpoint routes every portal.
 
 * `401 {"code":"unauthenticated","message":"Invalid email or password."}`
-  (no `errors`) for bad email **or** bad password — identical bodies.
+  (no `errors`) for bad email **or** bad password **or** an account signing in
+  from another portal's login page — identical bodies.
 * `403` `account_not_active` / `account_rejected` / `account_suspended` for a
   centre that is pending, rejected or suspended.
 * `429` after 10 attempts in a minute.

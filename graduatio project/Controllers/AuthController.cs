@@ -273,7 +273,7 @@ namespace graduatio_project.Controllers
         // الرابط سيكون: POST /api/auth/login
         [EnableRateLimiting("auth-login")]
         [HttpPost("login")]
-        public async Task<IActionResult> Login(LoginDto dto)
+        public async Task<IActionResult> Login(LoginDto dto, [FromQuery] string? role)
         {
             //  نبحث عن المستخدم في جدول Users باستخدام البريد الإلكتروني
             var user = await _context.Users
@@ -299,6 +299,26 @@ namespace graduatio_project.Controllers
             {
                 return ApiError.Unauthorized("unauthenticated", "Invalid email or password.");
             }
+
+            //  كل صفحة تسجيل دخول ترسل دورها في الـ query string؛ الحساب الذي
+            //  ينتمي لبوابة أخرى يُراجع بنفس رد كلمة المرور الخاطئة حتى لا نكشف
+            //  دور البريد المسجل. غياب الـ role يبقى مقبولًا للعملاء القديمة.
+            var requestedRole = role?.Trim().ToLowerInvariant();
+            if (!string.IsNullOrEmpty(requestedRole))
+            {
+                var accountRole = MapRole(user.Role);
+
+                //  بوابة المركز هي أيضًا حيث يسجّل دخول المعالجون
+                var roleMatches = requestedRole == "center"
+                    ? accountRole is "center" or "physiotherapist"
+                    : accountRole == requestedRole;
+
+                if (!roleMatches)
+                {
+                    return ApiError.Unauthorized("unauthenticated", "Invalid email or password.");
+                }
+            }
+
             //  نتحقق أن الحساب فعال ومسموح له بتسجيل الدخول
             if (!user.IsActive)
             {
