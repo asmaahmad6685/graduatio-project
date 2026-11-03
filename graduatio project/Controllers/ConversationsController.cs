@@ -24,12 +24,15 @@ namespace graduatio_project.Controllers
     {
         private readonly ApplicationDbContext _context;
         private readonly IHubContext<MessagingHub> _hub;
+        private readonly NotificationService _notifications;
 
         public ConversationsController(ApplicationDbContext context,
-            IHubContext<MessagingHub> hub)
+            IHubContext<MessagingHub> hub,
+            NotificationService notifications)
         {
             _context = context;
             _hub = hub;
+            _notifications = notifications;
         }
 
         //  فتح محادثة: المريض يفتح محادثة مع معالج — يُنشأ سطر جديد فقط إذا لم يكن موجودًا
@@ -220,6 +223,18 @@ namespace graduatio_project.Controllers
             //  الحدث يُدفع للطرف الآخر فورًا؛ البث الفاشل لا يُبطل الرسالة المحفوظة
             await NotifyConversationAsync(access.conversation!, "message");
 
+            //  إشعار الجرس للطرف الآخر، مع تجنب تكرار إشعار غير مقروء لمحادثة نفسها
+            var recipientIds = (await ParticipantUserIdsAsync(access.conversation!))
+                .Where(id => id != userId)
+                .ToList();
+            await _notifications.NotifyAsync(
+                recipientIds,
+                "message",
+                "New message",
+                "You have a new message.",
+                access.conversation!.ConversationId,
+                onlyWhenUnreadExists: true);
+
             return Ok(new
             {
                 id = message.MessageId.ToString(),
@@ -265,38 +280,47 @@ namespace graduatio_project.Controllers
         //  دفع فوري إلى كل جلسات طرفي المحادثة عبر SignalR:
         //  البث خطوة منفصلة عن الحفظ، فشله يُسجَّل فقط ولا يُسقط استجابة ناجحة،
         //  والبولي الصامدة (20 ثانية) يبقى شبكة الأمان لكل حدث ضائع
+        //  معرّفات المستخدمين الطرفين في المحادثة (مريض + معالج)
+        private async Task<List<int>> ParticipantUserIdsAsync(Conversation conversation)
+        {
+            var userIds = new List<int>();
+
+            var patientUserId = conversation.Patient?.UserId ?? 0;
+            if (patientUserId == 0 && conversation.PatientId != 0)
+            {
+                patientUserId = await _context.Patients.AsNoTracking()
+                    .Where(p => p.PatientId == conversation.PatientId)
+                    .Select(p => p.UserId)
+                    .FirstOrDefaultAsync();
+            }
+            if (patientUserId != 0)
+            {
+                userIds.Add(patientUserId);
+            }
+
+            if (conversation.TherapistId != 0)
+            {
+                var therapistUserId = await _context.Therapists.AsNoTracking()
+                    .Where(t => t.TherapistId == conversation.TherapistId)
+                    .Select(t => t.UserId)
+                    .FirstOrDefaultAsync();
+                if (therapistUserId != 0)
+                {
+                    userIds.Add(therapistUserId);
+                }
+            }
+
+            return userIds;
+        }
+
         private async Task NotifyConversationAsync(Conversation conversation, string type)
         {
             try
             {
-                var userIds = new List<int>();
-
-                var patientUserId = conversation.Patient?.UserId ?? 0;
-                if (patientUserId == 0 && conversation.PatientId != 0)
-                {
-                    patientUserId = await _context.Patients.AsNoTracking()
-                        .Where(p => p.PatientId == conversation.PatientId)
-                        .Select(p => p.UserId)
-                        .FirstOrDefaultAsync();
-                }
-                if (patientUserId != 0)
-                {
-                    userIds.Add(patientUserId);
-                }
-
-                if (conversation.TherapistId != 0)
-                {
-                    var therapistUserId = await _context.Therapists.AsNoTracking()
-                        .Where(t => t.TherapistId == conversation.TherapistId)
-                        .Select(t => t.UserId)
-                        .FirstOrDefaultAsync();
-                    if (therapistUserId != 0)
-                    {
-                        userIds.Add(therapistUserId);
-                    }
-                }
-
-                var targets = userIds.Distinct().Select(id => id.ToString()).ToArray();
+                var targets = (await ParticipantUserIdsAsync(conversation))
+                    .Distinct()
+                    .Select(id => id.ToString())
+                    .ToArray();
                 if (targets.Length == 0)
                 {
                     return;

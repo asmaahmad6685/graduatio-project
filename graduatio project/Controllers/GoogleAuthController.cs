@@ -29,15 +29,17 @@ public sealed class GoogleAuthController : ControllerBase
     private readonly RefreshTokenService _refreshTokens;
     private readonly GoogleAuthOptions _options;
     private readonly ILogger<GoogleAuthController> _logger;
+    private readonly NotificationService _notifications;
 
     public GoogleAuthController(ApplicationDbContext db, IGoogleTokenValidator validator,
         GoogleNonceStore nonces, GoogleRegistrationTicketStore tickets, TokenService tokens,
         RefreshTokenService refreshTokenService,
-        IOptions<GoogleAuthOptions> options, ILogger<GoogleAuthController> logger)
+        IOptions<GoogleAuthOptions> options, ILogger<GoogleAuthController> logger,
+        NotificationService notifications)
     {
         _db = db; _validator = validator; _nonces = nonces; _tickets = tickets;
         _tokens = tokens; _refreshTokens = refreshTokenService;
-        _options = options.Value; _logger = logger;
+        _options = options.Value; _logger = logger; _notifications = notifications;
     }
 
     //  شكل الدور في استجابة الـ API: صغير دائمًا وبالاسم الذي يفهمه الواجهة
@@ -175,6 +177,10 @@ public sealed class GoogleAuthController : ControllerBase
         await using var transaction = await _db.Database.BeginTransactionAsync(ct);
         await _db.SaveChangesAsync(ct);
         await transaction.CommitAsync(ct);
+        //  الجرس للأدمن: طلب مركز جديد بانتظار الاعتماد
+        await _notifications.NotifyAdminsAsync(
+            "centerApproval", "Center approval required",
+            $"New center application: {dto.CenterName.Trim()}.", center.CenterId);
         return StatusCode(201, new
         {
             message = "Center registered successfully and is pending admin approval.", userId = user.UserId,

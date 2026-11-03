@@ -107,5 +107,19 @@ namespace graduatio_project.DTOs.Admin
         public string? SiteDescription { get; set; }
 
         public bool? MaintenanceMode { get; set; }
+
+        //  تفضيلات إشعارات الأدمن: نفس الأعلام الأربعة العامة لكل الأدوار
+        public AdminNotificationSettingsDto? Notifications { get; set; }
+    }
+
+    public class AdminNotificationSettingsDto
+    {
+        public bool? EmailEnabled { get; set; }
+
+        public bool? InAppEnabled { get; set; }
+
+        public bool? AppointmentReminders { get; set; }
+
+        public bool? Marketing { get; set; }
     }
 }

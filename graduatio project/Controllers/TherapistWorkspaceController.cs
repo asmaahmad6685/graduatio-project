@@ -23,11 +23,16 @@ namespace graduatio_project.Controllers
     {
         private readonly ApplicationDbContext _context;
         private readonly IWebHostEnvironment _environment;
+        private readonly NotificationService _notifications;
 
-        public TherapistWorkspaceController(ApplicationDbContext context, IWebHostEnvironment environment)
+        public TherapistWorkspaceController(
+            ApplicationDbContext context,
+            IWebHostEnvironment environment,
+            NotificationService notifications)
         {
             _context = context;
             _environment = environment;
+            _notifications = notifications;
         }
 
         //  رفع مرفق رسالة: نفس عقد صورة المريض (حقل file، ٢ ميجابايت، { url })
@@ -320,8 +325,44 @@ namespace graduatio_project.Controllers
                 return ApiError.NotFound("not_found", "Appointment not found.");
             }
 
+            var previousStatus = appointment.Status;
             AppointmentStatusRules.Apply(appointment, dto.Status, dto.Reason);
             await _context.SaveChangesAsync();
+
+            //  الجرس: المريض والمركز يُعلمون بتغيّر الحالة، والأدمن عند الإلغاء
+            if (previousStatus != appointment.Status)
+            {
+                var patientUserId = await _context.Patients.AsNoTracking()
+                    .Where(p => p.PatientId == appointment.PatientId)
+                    .Select(p => p.UserId)
+                    .FirstOrDefaultAsync();
+                var centerUserId = await _context.Centers.AsNoTracking()
+                    .Where(c => c.CenterId == appointment.CenterId)
+                    .Select(c => c.UserId)
+                    .FirstOrDefaultAsync();
+
+                await _notifications.NotifyAsync(
+                    patientUserId,
+                    "appointment",
+                    "Appointment update",
+                    $"Your appointment is now {appointment.Status}.",
+                    appointment.AppointmentId);
+                await _notifications.NotifyAsync(
+                    centerUserId,
+                    "appointmentChange",
+                    "Appointment update",
+                    $"An appointment is now {appointment.Status}.",
+                    appointment.AppointmentId);
+
+                if (appointment.Status == "Cancelled")
+                {
+                    await _notifications.NotifyAdminsAsync(
+                        "appointmentCancelled",
+                        "Appointment cancelled",
+                        "An appointment was cancelled.",
+                        appointment.AppointmentId);
+                }
+            }
 
             var loaded = await AppointmentMapper.LoadAsync(_context,
                 _context.Appointments.Where(a => a.AppointmentId == appointmentId));

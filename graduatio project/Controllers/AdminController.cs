@@ -20,10 +20,12 @@ namespace graduatio_project.Controllers
     public class AdminController : ControllerBase
     {
         private readonly ApplicationDbContext _context;
+        private readonly NotificationService _notifications;
 
-        public AdminController(ApplicationDbContext context)
+        public AdminController(ApplicationDbContext context, NotificationService notifications)
         {
             _context = context;
+            _notifications = notifications;
         }
 
         [HttpGet]
@@ -102,6 +104,14 @@ namespace graduatio_project.Controllers
             }
 
             await _context.SaveChangesAsync();
+
+            //  الجرس لصاحب المركز: قرار الاعتماد أو الرفض
+            await _notifications.NotifyAsync(
+                center.UserId,
+                "center",
+                "Center status update",
+                $"Your center is now {center.Status}.",
+                center.CenterId);
 
             //  نعيد نفس شكل الطلب حتى تحدّث الواجهة صفّها دون إعادة جلب
             var tracked = await _context.Centers

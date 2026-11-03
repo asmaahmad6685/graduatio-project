@@ -41,23 +41,26 @@ namespace graduatio_project.Controllers
         private readonly PasswordService _passwordService;
 
         //  نستخدم TokenService لإنشاء Access Token بعد نجاح تسجيل الدخول
-        private readonly TokenService _tokenService;
-
-        //  نستخدمه لإنشاء Refresh Token وتجديده وإلغاؤه
+        private readonly TokenService _tokenService;        //  نستخدمه لإنشاء Refresh Token وتجديده وإلغاؤه
         private readonly RefreshTokenService _refreshTokenService;
 
+        //  إشعارات داخل التطبيق (إشعار الأدمن بطلب مركز جديد)
+        private readonly NotificationService _notifications;
+
         //  ASP.NET Core يرسل لنا هذه الخدمات تلقائيًا
-        // عن طريق Dependency Injection
+        //  عن طريق Dependency Injection
         public AuthController(
             ApplicationDbContext context,
             PasswordService passwordService,
             TokenService tokenService,
-            RefreshTokenService refreshTokenService)
+            RefreshTokenService refreshTokenService,
+            NotificationService notifications)
         {
             _context = context;
             _passwordService = passwordService;
             _tokenService = tokenService;
             _refreshTokenService = refreshTokenService;
+            _notifications = notifications;
         }
 
         //  شكل الدور في استجابة الـ API: صغير دائمًا وبالاسم الذي يفهمه الواجهة
@@ -254,6 +257,13 @@ namespace graduatio_project.Controllers
 
             //  لم يفشل أي خطوتين، نؤكد المعاملة
             await transaction.CommitAsync();
+
+            //  الجرس للأدمن: طلب مركز جديد بانتظار الاعتماد
+            await _notifications.NotifyAdminsAsync(
+                "centerApproval",
+                "Center approval required",
+                $"New center application: {dto.CenterName}.",
+                center.CenterId);
 
             //  نرجع Response للـ Frontend يؤكد نجاح تسجيل المركز
             // ونوضح أن حالة المركز Pending لأنه ينتظر موافقة الـ Admin

@@ -23,11 +23,16 @@ namespace graduatio_project.Controllers
     {
         private readonly ApplicationDbContext _db;
         private readonly PasswordService _pwd;
+        private readonly NotificationService _notifications;
 
-        public AdminManagementController(ApplicationDbContext db, PasswordService pwd)
+        public AdminManagementController(
+            ApplicationDbContext db,
+            PasswordService pwd,
+            NotificationService notifications)
         {
             _db = db;
             _pwd = pwd;
+            _notifications = notifications;
         }
 
         // ─────────────────────────────────────────────────────────────
@@ -39,6 +44,28 @@ namespace graduatio_project.Controllers
 
         private static string Iso(DateTime dt) => dt.ToString("yyyy-MM-dd'T'HH:mm:ss'Z'");
         private static string? Iso(DateTime? dt) => dt?.ToString("yyyy-MM-dd'T'HH:mm:ss'Z'");
+
+        //  شكل الإشعار الموحّد للوحة ولجرس شريط التنقل
+        private static object NotificationDto(Notification n) => new
+        {
+            id = n.NotificationId.ToString(),
+            type = n.Type,
+            title = n.Title,
+            message = n.Message,
+            isRead = n.IsRead,
+            relatedId = n.RelatedEntityId?.ToString(),
+            createdAt = Iso(n.CreatedAt)
+        };
+
+        //  الأعلام الأربعة العامة نفسها التي تستخدمها بقية الأدوار
+        private static object PreferencesFlags(NotificationPreference? preferences) => new
+        {
+            emailEnabled = preferences?.EmailEnabled ?? true,
+            inAppEnabled = preferences?.InAppEnabled ?? true,
+            appointmentReminders = preferences?.AppointmentReminders ?? true,
+            marketing = preferences?.Marketing ?? false,
+            language = preferences?.Language ?? "en"
+        };
 
         // ─────────────────────────────────────────────────────────────
         //  1. DASHBOARD   GET /api/admin/dashboard?year=
@@ -93,6 +120,14 @@ namespace graduatio_project.Controllers
                 ? Math.Round(await _db.Reviews.AverageAsync(r => (double)r.Rating), 1)
                 : null;
 
+            //  إشعارات الأدمن لعرضها في لوحة الإشعارات بالواجهة
+            var notificationRows = await _db.Notifications.AsNoTracking()
+                .Where(n => n.UserId == CurrentUserId())
+                .OrderByDescending(n => n.CreatedAt)
+                .Take(25)
+                .ToListAsync();
+            var notifications = notificationRows.Select(NotificationDto).ToList();
+
             return Ok(new
             {
                 year = y,
@@ -108,7 +143,32 @@ namespace graduatio_project.Controllers
                     avgRating
                 },
                 monthlyAppointments = monthly,
-                recentApplications
+                recentApplications,
+                notifications
+            });
+        }
+
+        // ─────────────────────────────────────────────────────────────
+        //  NOTIFICATIONS   GET /api/admin/notifications
+        //  جرس شريط التنقل: إشعارات الأدمن مع تفضيلات إظهارها
+        // ─────────────────────────────────────────────────────────────
+
+        [HttpGet("notifications")]
+        public async Task<IActionResult> GetNotifications()
+        {
+            var rows = await _db.Notifications.AsNoTracking()
+                .Where(n => n.UserId == CurrentUserId())
+                .OrderByDescending(n => n.CreatedAt)
+                .Take(50)
+                .ToListAsync();
+
+            var preferences = await _db.NotificationPreferences.AsNoTracking()
+                .FirstOrDefaultAsync(p => p.UserId == CurrentUserId());
+
+            return Ok(new
+            {
+                notifications = rows.Select(NotificationDto).ToList(),
+                preferences = PreferencesFlags(preferences)
             });
         }
 
@@ -317,6 +377,14 @@ namespace graduatio_project.Controllers
             }
 
             await _db.SaveChangesAsync();
+
+            //  الجرس لصاحب المركز: قرار الاعتماد أو الرفض أو التعليق
+            await _notifications.NotifyAsync(
+                center.UserId,
+                "center",
+                "Center status update",
+                $"Your center is now {center.Status}.",
+                center.CenterId);
 
             return Ok(new
             {
@@ -592,6 +660,14 @@ namespace graduatio_project.Controllers
             therapist.User.UpdatedAt = DateTime.UtcNow;
             await _db.SaveChangesAsync();
 
+            //  الجرس للمعالج: تغيّر حالة الحساب (تفعيل/تعليق)
+            await _notifications.NotifyAsync(
+                therapist.UserId,
+                "system",
+                "Account status updated",
+                $"Your account is now {s}.",
+                therapist.TherapistId);
+
             return Ok(new
             {
                 id = therapist.TherapistId.ToString(),
@@ -805,6 +881,7 @@ namespace graduatio_project.Controllers
             [FromQuery] int? minRating,
             [FromQuery] int? maxRating,
             [FromQuery] string? search,
+            [FromQuery] string? sort,       // newest (default) | oldest | highest
             [FromQuery] int page = 1,
             [FromQuery] int pageSize = 20)
         {
@@ -827,10 +904,14 @@ namespace graduatio_project.Controllers
 
             if (!string.IsNullOrWhiteSpace(search))
             {
+                //  البحث يغطي نص التقييم والمريض والمركز والمعالج (كما يَعِد به حقل البحث في الواجهة)
                 var s = search.ToLower();
                 q = q.Where(r =>
                     (r.Comment != null && r.Comment.ToLower().Contains(s)) ||
-                    r.Patient.FullName.ToLower().Contains(s));
+                    r.Patient.FullName.ToLower().Contains(s) ||
+                    (r.Center.NameEnglish != null && r.Center.NameEnglish.ToLower().Contains(s)) ||
+                    (r.Center.NameArabic != null && r.Center.NameArabic.ToLower().Contains(s)) ||
+                    r.Appointment.Therapist.FullName.ToLower().Contains(s));
             }
 
             var total = await q.CountAsync();
@@ -842,6 +923,7 @@ namespace graduatio_project.Controllers
                 total = allReviews.Count,
                 visible = allReviews.Count(r => r.IsVisible),
                 hidden = allReviews.Count(r => !r.IsVisible),
+                replied = allReviews.Count(r => r.Reply != null),
                 averageRating = allReviews.Count > 0
                     ? Math.Round(allReviews.Average(r => (double)r.Rating), 1)
                     : (double?)null,
@@ -850,8 +932,15 @@ namespace graduatio_project.Controllers
                     .ToList()
             };
 
-            var items = await q
-                .OrderByDescending(r => r.CreatedAt)
+            var ordered = sort?.ToLowerInvariant() switch
+            {
+                "oldest" => q.OrderBy(r => r.CreatedAt),
+                "highest" => q.OrderByDescending(r => r.Rating)
+                    .ThenByDescending(r => r.CreatedAt),
+                _ => q.OrderByDescending(r => r.CreatedAt)
+            };
+
+            var items = await ordered
                 .Skip((page - 1) * pageSize)
                 .Take(pageSize)
                 .Select(r => new
@@ -859,6 +948,7 @@ namespace graduatio_project.Controllers
                     id = r.ReviewId.ToString(),
                     patient = new { id = r.PatientId.ToString(), name = r.Patient.FullName, imageUrl = r.Patient.ProfileImageUrl },
                     center = new { id = r.CenterId.ToString(), name = r.Center.NameEnglish ?? r.Center.NameArabic },
+                    therapistName = r.Appointment.Therapist.FullName,
                     appointmentId = r.AppointmentId.ToString(),
                     rating = r.Rating,
                     comment = r.Comment,
@@ -928,6 +1018,9 @@ namespace graduatio_project.Controllers
             if (admin == null)
                 return ApiError.NotFound("not_found", "Admin profile not found.");
 
+            var preferences = await _db.NotificationPreferences.AsNoTracking()
+                .FirstOrDefaultAsync(p => p.UserId == uid);
+
             return Ok(new
             {
                 adminId = admin.AdminId.ToString(),
@@ -935,7 +1028,9 @@ namespace graduatio_project.Controllers
                 email = admin.User.Email,
                 phone = admin.User.PhoneNumber,
                 // Site-wide toggles can be extended with a dedicated settings table later
-                maintenanceMode = false
+                maintenanceMode = false,
+                //  تفضيلات الإشعارات: نفس الأعلام الأربعة المستخدمة في كل الأدوار
+                notifications = PreferencesFlags(preferences)
             });
         }
 
@@ -965,6 +1060,28 @@ namespace graduatio_project.Controllers
 
             // Email change not supported here — use /api/auth/change-email if needed
             // MaintenanceMode would need a global settings table; ignored for now
+
+            //  حفظ تفضيلات الإشعارات في صف المستخدم الخاص بالأدمن
+            if (dto.Notifications != null)
+            {
+                var preferences = await _db.NotificationPreferences
+                    .FirstOrDefaultAsync(p => p.UserId == uid);
+
+                if (preferences == null)
+                {
+                    preferences = new NotificationPreference { UserId = uid };
+                    _db.NotificationPreferences.Add(preferences);
+                }
+
+                if (dto.Notifications.EmailEnabled.HasValue)
+                    preferences.EmailEnabled = dto.Notifications.EmailEnabled.Value;
+                if (dto.Notifications.InAppEnabled.HasValue)
+                    preferences.InAppEnabled = dto.Notifications.InAppEnabled.Value;
+                if (dto.Notifications.AppointmentReminders.HasValue)
+                    preferences.AppointmentReminders = dto.Notifications.AppointmentReminders.Value;
+                if (dto.Notifications.Marketing.HasValue)
+                    preferences.Marketing = dto.Notifications.Marketing.Value;
+            }
 
             await _db.SaveChangesAsync();
 

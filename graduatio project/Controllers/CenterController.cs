@@ -24,13 +24,18 @@ namespace graduatio_project.Controllers
         //  نستخدم PasswordService لعمل Hash لباسورد المعالج
         private readonly PasswordService _passwordService;
 
+        //  إشعارات داخل التطبيق (جنس الأدمن عند إنشاء معالج جديد)
+        private readonly NotificationService _notifications;
+
         //  Constructor يستقبل الخدمات التي يحتاجها الـ Controller
         public CenterController(
             ApplicationDbContext context,
-            PasswordService passwordService)
+            PasswordService passwordService,
+            NotificationService notifications)
         {
             _context = context;
             _passwordService = passwordService;
+            _notifications = notifications;
         }
         //  هذا الـ API يسمح للمركز بإضافة Therapist جديد
         // ويعمل له User Account حتى يقدر يعمل Login بنفس الإيميل والباسورد
@@ -168,6 +173,13 @@ namespace graduatio_project.Controllers
 
             // Save the User and Therapist together in EF Core's automatic transaction.
             await _context.SaveChangesAsync();
+
+            //  الجرس للأدمن: حساب معالج جديد أنشأه مركز معتمد
+            await _notifications.NotifyAdminsAsync(
+                "therapistVerified",
+                "Physiotherapist verified",
+                $"A new physiotherapist account was created at {center.NameArabic}.",
+                therapist.TherapistId);
 
             //  نرجع Response للـ Frontend بعد نجاح الإضافة
             return Ok(new

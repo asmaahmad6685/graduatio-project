@@ -179,6 +179,70 @@ namespace graduatio_project.Controllers
                 .Where(t => therapistIds.Contains(t.TherapistId))
                 .ToListAsync();
 
+            var preferences = await _context.NotificationPreferences.AsNoTracking()
+                .FirstOrDefaultAsync(p => p.UserId == user.UserId);
+
+            //  تذكيرات المواعيد: تُنشأ عند التحميل إن كان التذكير مفعّلًا (مثل
+            //  وضع العرض التجريبي)، ونحذف أي تذكير لم يعد صالحًا: موعد أُلغي
+            //  أو خرج من نافذة الساعات الأربع والعشرين القادمة
+            var nowLocal = DateTime.Now;
+            var reminders = await _context.Notifications
+                .Where(n => n.UserId == user.UserId && n.Type == "appointmentReminder")
+                .ToListAsync();
+
+            var reminderAppointmentIds = reminders
+                .Where(n => n.RelatedEntityId != null)
+                .Select(n => n.RelatedEntityId!.Value)
+                .Distinct()
+                .ToList();
+            var reminderAppointments = await _context.Appointments.AsNoTracking()
+                .Where(a => reminderAppointmentIds.Contains(a.AppointmentId))
+                .Select(a => new { a.AppointmentId, a.Status, a.StartDateTime })
+                .ToListAsync();
+            var appointmentById = reminderAppointments.ToDictionary(a => a.AppointmentId);
+
+            var staleReminders = reminders.Where(n =>
+                n.RelatedEntityId == null
+                || !appointmentById.TryGetValue(n.RelatedEntityId.Value, out var reminderAppointment)
+                || reminderAppointment.Status != "Confirmed"
+                || reminderAppointment.StartDateTime <= nowLocal
+                || reminderAppointment.StartDateTime > nowLocal.AddHours(24)).ToList();
+
+            if (staleReminders.Count > 0)
+            {
+                _context.Notifications.RemoveRange(staleReminders);
+            }
+
+            if (preferences?.AppointmentReminders != false)
+            {
+                var inWindowIds = await _context.Appointments.AsNoTracking()
+                    .Where(a => a.PatientId == patient.PatientId
+                        && a.Status == "Confirmed"
+                        && a.StartDateTime > nowLocal
+                        && a.StartDateTime <= nowLocal.AddHours(24))
+                    .Select(a => a.AppointmentId)
+                    .ToListAsync();
+
+                var existingIds = reminders
+                    .Where(n => !staleReminders.Contains(n) && n.RelatedEntityId != null)
+                    .Select(n => n.RelatedEntityId!.Value)
+                    .ToHashSet();
+
+                foreach (var appointmentId in inWindowIds.Where(id => !existingIds.Contains(id)))
+                {
+                    _context.Notifications.Add(new Notification
+                    {
+                        UserId = user.UserId,
+                        Type = "appointmentReminder",
+                        Title = "Upcoming appointment",
+                        Message = "You have a confirmed appointment within the next 24 hours.",
+                        RelatedEntityId = appointmentId
+                    });
+                }
+            }
+
+            await _context.SaveChangesAsync();
+
             var notifications = await _context.Notifications.AsNoTracking()
                 .Where(n => n.UserId == user.UserId)
                 .OrderByDescending(n => n.CreatedAt)
@@ -188,9 +252,6 @@ namespace graduatio_project.Controllers
             {
                 notifications = notifications.Where(n => n.CreatedAt > sinceUtc.Value).ToList();
             }
-
-            var preferences = await _context.NotificationPreferences.AsNoTracking()
-                .FirstOrDefaultAsync(p => p.UserId == user.UserId);
 
             return Ok(new
             {

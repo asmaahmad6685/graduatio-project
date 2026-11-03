@@ -29,15 +29,18 @@ namespace graduatio_project.Controllers
         private readonly ApplicationDbContext _context;
         private readonly IWebHostEnvironment _environment;
         private readonly PasswordService _passwordService;
+        private readonly NotificationService _notifications;
 
         public CenterWorkspaceController(
             ApplicationDbContext context,
             IWebHostEnvironment environment,
-            PasswordService passwordService)
+            PasswordService passwordService,
+            NotificationService notifications)
         {
             _context = context;
             _environment = environment;
             _passwordService = passwordService;
+            _notifications = notifications;
         }
 
         [HttpGet("workspace")]
@@ -626,6 +629,19 @@ namespace graduatio_project.Controllers
                 return specialtyError;
             }
 
+            //  ما كان محفوظًا قبل التعديل حتى نُعلم المعالج بما تغيّر فعلاً
+            var previousFullName = therapist.FullName;
+            var previousSpecialtyId = therapist.SpecialtyId;
+            var previousBio = therapist.Bio;
+            var previousQualifications = therapist.Qualifications;
+            var previousLanguages = therapist.Languages;
+            var previousExperience = therapist.YearsOfExperience;
+            var previousServiceIds = await _context.TherapistServices.AsNoTracking()
+                .Where(x => x.TherapistId == therapistId)
+                .Select(x => x.ServiceId)
+                .ToListAsync();
+            List<int>? assignedServiceIds = null;
+
             therapist.FullName = dto.FullName.Trim();
             therapist.SpecialtyId = dto.SpecialtyId;
             //  النموذج لا يحرر هذه الحقول، فالقيمة null تعني "أبقِ ما هو محفوظ"
@@ -657,6 +673,8 @@ namespace graduatio_project.Controllers
                     }, "One or more services do not belong to this center.");
                 }
 
+                assignedServiceIds = ownedByCenter;
+
                 var existing = await _context.TherapistServices
                     .Where(x => x.TherapistId == therapistId)
                     .ToListAsync();
@@ -678,6 +696,35 @@ namespace graduatio_project.Controllers
             }
 
             await _context.SaveChangesAsync();
+
+            //  الجرس للمعالج: الخدمات المتغيّرة والمعلومات المهنية المتغيّرة فقط
+            if (assignedServiceIds != null
+                && !previousServiceIds.OrderBy(id => id).SequenceEqual(assignedServiceIds.OrderBy(id => id)))
+            {
+                await _notifications.NotifyAsync(
+                    therapist.UserId,
+                    "services",
+                    "Assigned services updated",
+                    "Your center updated your assigned services.",
+                    therapistId);
+            }
+
+            var professionalChanged = previousFullName != therapist.FullName
+                || previousSpecialtyId != therapist.SpecialtyId
+                || (dto.Bio != null && previousBio != therapist.Bio)
+                || (dto.Qualifications != null && previousQualifications != therapist.Qualifications)
+                || (dto.Languages != null && previousLanguages != therapist.Languages)
+                || previousExperience != therapist.YearsOfExperience;
+
+            if (professionalChanged)
+            {
+                await _notifications.NotifyAsync(
+                    therapist.UserId,
+                    "professional",
+                    "Professional information updated",
+                    "Your center updated your professional information.",
+                    therapistId);
+            }
 
             return Ok(new
             {
@@ -1003,8 +1050,44 @@ namespace graduatio_project.Controllers
                 return ApiError.NotFound("not_found", "Appointment not found.");
             }
 
+            var previousStatus = appointment.Status;
             AppointmentStatusRules.Apply(appointment, dto.Status, dto.Reason);
             await _context.SaveChangesAsync();
+
+            //  الجرس: المريض والمعالج يُعلمون بتغيّر الحالة، والأدمن عند الإلغاء
+            if (previousStatus != appointment.Status)
+            {
+                var patientUserId = await _context.Patients.AsNoTracking()
+                    .Where(p => p.PatientId == appointment.PatientId)
+                    .Select(p => p.UserId)
+                    .FirstOrDefaultAsync();
+                var therapistUserId = await _context.Therapists.AsNoTracking()
+                    .Where(t => t.TherapistId == appointment.TherapistId)
+                    .Select(t => t.UserId)
+                    .FirstOrDefaultAsync();
+
+                await _notifications.NotifyAsync(
+                    patientUserId,
+                    "appointment",
+                    "Appointment update",
+                    $"Your appointment is now {appointment.Status}.",
+                    appointment.AppointmentId);
+                await _notifications.NotifyAsync(
+                    therapistUserId,
+                    "appointmentChange",
+                    "Appointment update",
+                    $"An appointment is now {appointment.Status}.",
+                    appointment.AppointmentId);
+
+                if (appointment.Status == "Cancelled")
+                {
+                    await _notifications.NotifyAdminsAsync(
+                        "appointmentCancelled",
+                        "Appointment cancelled",
+                        "An appointment was cancelled.",
+                        appointment.AppointmentId);
+                }
+            }
 
             var loaded = await AppointmentMapper.LoadAsync(_context,
                 _context.Appointments.Where(a => a.AppointmentId == appointmentId));

@@ -62,6 +62,9 @@ namespace graduatio_project
             //  دفع فورية للمحادثات: Hub تبث أحداث الرسائل لكل جلسات المستخدم
             builder.Services.AddSignalR();
 
+            //  إشعارات داخل التطبيق: إنشاء عند الأحداث + بث فوري للجرس
+            builder.Services.AddScoped<NotificationService>();
+
             // Disabled until a real Web Client ID is configured. Enabling with
             // invalid settings fails at startup; existing password auth is untouched.
             builder.Services.AddOptions<GoogleAuthOptions>()

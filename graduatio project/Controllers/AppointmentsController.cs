@@ -17,10 +17,12 @@ namespace graduatio_project.Controllers
     public class AppointmentsController : ControllerBase
     {
         private readonly ApplicationDbContext _context;
+        private readonly NotificationService _notifications;
 
-        public AppointmentsController(ApplicationDbContext context)
+        public AppointmentsController(ApplicationDbContext context, NotificationService notifications)
         {
             _context = context;
+            _notifications = notifications;
         }
 
         [HttpPost("request")]
@@ -110,6 +112,22 @@ namespace graduatio_project.Controllers
 
             _context.Appointments.Add(appointment);
             await _context.SaveChangesAsync();
+
+            //  الجرس: المعالج والمركز يُعلمون بطلب الموعد الجديد
+            var therapistUserId = await _context.Therapists.AsNoTracking()
+                .Where(t => t.TherapistId == appointment.TherapistId)
+                .Select(t => t.UserId)
+                .FirstOrDefaultAsync();
+            var centerUserId = await _context.Centers.AsNoTracking()
+                .Where(c => c.CenterId == appointment.CenterId)
+                .Select(c => c.UserId)
+                .FirstOrDefaultAsync();
+            await _notifications.NotifyAsync(
+                new[] { therapistUserId, centerUserId },
+                "appointmentRequest",
+                "New appointment request",
+                $"A patient requested an appointment on {day:yyyy-MM-dd} at {time:HH:mm}.",
+                appointment.AppointmentId);
 
             var payload = AppointmentMapper.Build(
                 new[] { appointment },
