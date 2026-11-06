@@ -431,6 +431,38 @@ namespace graduatio_project.Controllers
                 })
                 .FirstOrDefaultAsync();
 
+            //  تخصصات المركز مشتقة من تخصصات أخصائييه
+            var specialties = await _db.Therapists.AsNoTracking()
+                .Where(t => t.CenterId == id)
+                .Select(t => t.Specialty.NameEnglish ?? t.Specialty.NameArabic)
+                .Distinct()
+                .ToListAsync();
+
+            //  الملفات المرفوعة من المركز: قائمة المستندات وصور العيادة
+            var documents = await _db.CenterDocuments.AsNoTracking()
+                .Where(d => d.CenterId == id)
+                .OrderByDescending(d => d.UploadedAt)
+                .Select(d => new
+                {
+                    id = d.CenterDocumentId.ToString(),
+                    type = d.DocumentType,
+                    url = d.FileUrl,
+                    uploadedAt = Iso(d.UploadedAt)
+                })
+                .ToListAsync();
+
+            var photos = await _db.CenterImages.AsNoTracking()
+                .Where(i => i.CenterId == id)
+                .OrderByDescending(i => i.IsPrimary)
+                .ThenBy(i => i.DisplayOrder)
+                .Select(i => new
+                {
+                    id = i.CenterImageId.ToString(),
+                    url = i.ImageUrl,
+                    isPrimary = i.IsPrimary
+                })
+                .ToListAsync();
+
             return Ok(new
             {
                 id = center.CenterId.ToString(),
@@ -458,6 +490,9 @@ namespace graduatio_project.Controllers
                 },
                 therapists,
                 services,
+                specialties,
+                documents,
+                photos,
                 stats = new
                 {
                     appointments = appointmentStats,
