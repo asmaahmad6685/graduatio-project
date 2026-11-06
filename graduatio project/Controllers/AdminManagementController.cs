@@ -1,3 +1,4 @@
+using System.Globalization;
 using graduatio_project.Data;
 using graduatio_project.DTOs.Admin;
 using graduatio_project.Models;
@@ -565,6 +566,113 @@ namespace graduatio_project.Controllers
         }
 
         // ─────────────────────────────────────────────────────────────
+        //  4b. EDIT CENTER   PUT /api/admin/centers/{id}
+        // ─────────────────────────────────────────────────────────────
+
+        [HttpPut("centers/{id:int}")]
+        public async Task<IActionResult> UpdateCenter(int id, AdminUpdateCenterDto dto)
+        {
+            var center = await _db.Centers
+                .Include(c => c.User)
+                .FirstOrDefaultAsync(c => c.CenterId == id);
+
+            if (center == null)
+                return ApiError.NotFound("not_found", "Center not found.");
+
+            var nameEnglish = dto.NameEnglish?.Trim();
+            var nameArabic = dto.NameArabic?.Trim();
+            if (string.IsNullOrWhiteSpace(nameEnglish) && string.IsNullOrWhiteSpace(nameArabic))
+                return ApiError.Validation(
+                    new Dictionary<string, string[]> { ["NameArabic"] = ["A center name is required."] },
+                    "A center name is required.");
+
+            if (!string.IsNullOrWhiteSpace(nameArabic))
+                center.NameArabic = nameArabic;
+            if (nameEnglish != null)
+                center.NameEnglish = nameEnglish;
+            if (!string.IsNullOrWhiteSpace(dto.City))
+                center.City = dto.City.Trim();
+            if (dto.Address != null)
+                center.Address = dto.Address.Trim();
+            if (dto.WebsiteUrl != null)
+                center.WebsiteUrl = string.IsNullOrWhiteSpace(dto.WebsiteUrl) ? null : dto.WebsiteUrl.Trim();
+            if (dto.DescriptionEnglish != null)
+                center.DescriptionEnglish = dto.DescriptionEnglish.Trim();
+            if (!string.IsNullOrWhiteSpace(dto.PhoneNumber))
+                center.User.PhoneNumber = dto.PhoneNumber.Trim();
+
+            center.UpdatedAt = DateTime.UtcNow;
+            center.User.UpdatedAt = DateTime.UtcNow;
+            await _db.SaveChangesAsync();
+
+            return Ok(new
+            {
+                id = center.CenterId.ToString(),
+                name = center.NameEnglish ?? center.NameArabic,
+                city = center.City,
+                address = center.Address,
+                websiteUrl = center.WebsiteUrl,
+                phone = center.User.PhoneNumber,
+                status = center.Status.ToLowerInvariant(),
+                updatedAt = Iso(center.UpdatedAt!.Value)
+            });
+        }
+
+        // ─────────────────────────────────────────────────────────────
+        //  4c. DELETE CENTER   DELETE /api/admin/centers/{id}
+        //  Its own appointments, reviews, services and media go with it; a
+        //  center that still owns therapist accounts is refused, because those
+        //  are separate logins the admin has to move or remove first.
+        // ─────────────────────────────────────────────────────────────
+
+        [HttpDelete("centers/{id:int}")]
+        public async Task<IActionResult> DeleteCenter(int id)
+        {
+            var center = await _db.Centers.AsNoTracking().FirstOrDefaultAsync(c => c.CenterId == id);
+            if (center == null)
+                return ApiError.NotFound("not_found", "Center not found.");
+
+            var therapistCount = await _db.Therapists.CountAsync(t => t.CenterId == id);
+            if (therapistCount > 0)
+                return ApiError.Conflict(
+                    "center_has_therapists",
+                    $"This center still has {therapistCount} therapist(s). Remove or move them before deleting it.",
+                    new { therapists = therapistCount });
+
+            var userId = center.UserId;
+            var serviceIds = await _db.Services.Where(s => s.CenterId == id)
+                .Select(s => s.ServiceId).ToListAsync();
+            var appointmentIds = await _db.Appointments.Where(a => a.CenterId == id)
+                .Select(a => a.AppointmentId).ToListAsync();
+
+            await using var tx = await _db.Database.BeginTransactionAsync();
+
+            await _db.TherapistServices.Where(ts => serviceIds.Contains(ts.ServiceId)).ExecuteDeleteAsync();
+            await _db.Reviews.Where(r => r.CenterId == id || appointmentIds.Contains(r.AppointmentId)).ExecuteDeleteAsync();
+            await _db.AppointmentStatusHistories
+                .Where(h => appointmentIds.Contains(h.AppointmentId) || h.ChangedByUserId == userId)
+                .ExecuteDeleteAsync();
+            await _db.Appointments.Where(a => a.CenterId == id).ExecuteDeleteAsync();
+            await _db.Services.Where(s => s.CenterId == id).ExecuteDeleteAsync();
+            await _db.CenterImages.Where(i => i.CenterId == id).ExecuteDeleteAsync();
+            await _db.CenterDocuments.Where(d => d.CenterId == id).ExecuteDeleteAsync();
+            await _db.CenterWorkingHours.Where(w => w.CenterId == id).ExecuteDeleteAsync();
+            await _db.CenterPatients.Where(cp => cp.CenterId == id).ExecuteDeleteAsync();
+            await _db.PatientSavedCenters.Where(s => s.CenterId == id).ExecuteDeleteAsync();
+            await _db.PatientNotes.Where(n => n.CenterId == id).ExecuteDeleteAsync();
+            await _db.Notifications.Where(n => n.UserId == userId).ExecuteDeleteAsync();
+            await _db.RefreshTokens.Where(t => t.UserId == userId).ExecuteDeleteAsync();
+            await _db.ExternalLogins.Where(e => e.UserId == userId).ExecuteDeleteAsync();
+            await _db.PasswordResetTokens.Where(t => t.UserId == userId).ExecuteDeleteAsync();
+            await _db.Centers.Where(c => c.CenterId == id).ExecuteDeleteAsync();
+            await _db.Users.Where(u => u.UserId == userId).ExecuteDeleteAsync();
+
+            await tx.CommitAsync();
+
+            return Ok(new { id = id.ToString(), deleted = true });
+        }
+
+        // ─────────────────────────────────────────────────────────────
         //  5. PATIENTS LIST   GET /api/admin/patients
         // ─────────────────────────────────────────────────────────────
 
@@ -655,6 +763,129 @@ namespace graduatio_project.Controllers
                 isActive = patient.User.IsActive,
                 status = patient.User.IsActive ? "active" : "suspended"
             });
+        }
+
+        // ─────────────────────────────────────────────────────────────
+        //  6a. PATIENT DETAIL   GET /api/admin/patients/{id}
+        //  The list row only carries what the table shows; the edit dialog
+        //  needs the profile fields too.
+        // ─────────────────────────────────────────────────────────────
+
+        [HttpGet("patients/{id:int}")]
+        public async Task<IActionResult> GetPatient(int id)
+        {
+            var patient = await _db.Patients.AsNoTracking()
+                .Include(p => p.User)
+                .FirstOrDefaultAsync(p => p.PatientId == id);
+
+            if (patient == null)
+                return ApiError.NotFound("not_found", "Patient not found.");
+
+            return Ok(new
+            {
+                id = patient.PatientId.ToString(),
+                fullName = patient.FullName,
+                email = patient.User.Email,
+                phone = patient.User.PhoneNumber,
+                city = patient.City,
+                gender = patient.Gender,
+                dateOfBirth = patient.DateOfBirth?.ToString("yyyy-MM-dd"),
+                profileImageUrl = patient.ProfileImageUrl,
+                isActive = patient.User.IsActive,
+                joinedAt = Iso(patient.User.CreatedAt)
+            });
+        }
+
+        // ─────────────────────────────────────────────────────────────
+        //  6b. EDIT PATIENT   PUT /api/admin/patients/{id}
+        // ─────────────────────────────────────────────────────────────
+
+        [HttpPut("patients/{id:int}")]
+        public async Task<IActionResult> UpdatePatient(int id, AdminUpdatePatientDto dto)
+        {
+            var patient = await _db.Patients
+                .Include(p => p.User)
+                .FirstOrDefaultAsync(p => p.PatientId == id);
+
+            if (patient == null)
+                return ApiError.NotFound("not_found", "Patient not found.");
+
+            if (string.IsNullOrWhiteSpace(dto.FullName))
+                return ApiError.Validation(
+                    new Dictionary<string, string[]> { ["FullName"] = ["Full name is required."] },
+                    "Full name is required.");
+
+            patient.FullName = dto.FullName.Trim();
+            if (!string.IsNullOrWhiteSpace(dto.PhoneNumber))
+                patient.User.PhoneNumber = dto.PhoneNumber.Trim();
+            if (dto.City != null)
+                patient.City = string.IsNullOrWhiteSpace(dto.City) ? null : dto.City.Trim();
+            if (dto.Gender != null)
+                patient.Gender = string.IsNullOrWhiteSpace(dto.Gender) ? null : dto.Gender.Trim();
+            if (dto.DateOfBirth.HasValue)
+                patient.DateOfBirth = dto.DateOfBirth.Value;
+
+            patient.User.UpdatedAt = DateTime.UtcNow;
+            await _db.SaveChangesAsync();
+
+            return Ok(new
+            {
+                id = patient.PatientId.ToString(),
+                name = patient.FullName,
+                email = patient.User.Email,
+                phone = patient.User.PhoneNumber,
+                city = patient.City,
+                gender = patient.Gender,
+                dateOfBirth = patient.DateOfBirth?.ToString("yyyy-MM-dd")
+            });
+        }
+
+        // ─────────────────────────────────────────────────────────────
+        //  6c. DELETE PATIENT   DELETE /api/admin/patients/{id}
+        //  The account row alone is not enough: appointments, reviews,
+        //  assessments, notes and saved rows all point at the patient, so they
+        //  are removed in one transaction before the profile and login go.
+        // ─────────────────────────────────────────────────────────────
+
+        [HttpDelete("patients/{id:int}")]
+        public async Task<IActionResult> DeletePatient(int id)
+        {
+            var patient = await _db.Patients.AsNoTracking().FirstOrDefaultAsync(p => p.PatientId == id);
+            if (patient == null)
+                return ApiError.NotFound("not_found", "Patient not found.");
+
+            var userId = patient.UserId;
+            var appointmentIds = await _db.Appointments.Where(a => a.PatientId == id)
+                .Select(a => a.AppointmentId).ToListAsync();
+            var assessmentIds = await _db.Assessments.Where(a => a.PatientId == id)
+                .Select(a => a.AssessmentId).ToListAsync();
+            var conversationIds = await _db.Conversations.Where(c => c.PatientId == id)
+                .Select(c => c.ConversationId).ToListAsync();
+
+            await using var tx = await _db.Database.BeginTransactionAsync();
+
+            await _db.Reviews.Where(r => r.PatientId == id || appointmentIds.Contains(r.AppointmentId)).ExecuteDeleteAsync();
+            await _db.AppointmentStatusHistories
+                .Where(h => appointmentIds.Contains(h.AppointmentId) || h.ChangedByUserId == userId)
+                .ExecuteDeleteAsync();
+            await _db.Appointments.Where(a => a.PatientId == id).ExecuteDeleteAsync();
+            await _db.AssessmentAnswers.Where(a => assessmentIds.Contains(a.AssessmentId)).ExecuteDeleteAsync();
+            await _db.Assessments.Where(a => a.PatientId == id).ExecuteDeleteAsync();
+            await _db.Messages.Where(m => conversationIds.Contains(m.ConversationId) || m.SenderUserId == userId).ExecuteDeleteAsync();
+            await _db.Conversations.Where(c => c.PatientId == id).ExecuteDeleteAsync();
+            await _db.PatientSavedCenters.Where(s => s.PatientId == id).ExecuteDeleteAsync();
+            await _db.CenterPatients.Where(cp => cp.PatientId == id).ExecuteDeleteAsync();
+            await _db.PatientNotes.Where(n => n.PatientId == id || n.AuthorUserId == userId).ExecuteDeleteAsync();
+            await _db.Notifications.Where(n => n.UserId == userId).ExecuteDeleteAsync();
+            await _db.RefreshTokens.Where(t => t.UserId == userId).ExecuteDeleteAsync();
+            await _db.ExternalLogins.Where(e => e.UserId == userId).ExecuteDeleteAsync();
+            await _db.PasswordResetTokens.Where(t => t.UserId == userId).ExecuteDeleteAsync();
+            await _db.Patients.Where(p => p.PatientId == id).ExecuteDeleteAsync();
+            await _db.Users.Where(u => u.UserId == userId).ExecuteDeleteAsync();
+
+            await tx.CommitAsync();
+
+            return Ok(new { id = id.ToString(), deleted = true });
         }
 
         // ─────────────────────────────────────────────────────────────
@@ -846,6 +1077,140 @@ namespace graduatio_project.Controllers
         }
 
         // ─────────────────────────────────────────────────────────────
+        //  9a. THERAPIST DETAIL   GET /api/admin/physiotherapists/{id}
+        // ─────────────────────────────────────────────────────────────
+
+        [HttpGet("physiotherapists/{id:int}")]
+        public async Task<IActionResult> GetTherapist(int id)
+        {
+            var therapist = await _db.Therapists.AsNoTracking()
+                .Include(t => t.User)
+                .Include(t => t.Center)
+                .Include(t => t.Specialty)
+                .FirstOrDefaultAsync(t => t.TherapistId == id);
+
+            if (therapist == null)
+                return ApiError.NotFound("not_found", "Physiotherapist not found.");
+
+            return Ok(new
+            {
+                id = therapist.TherapistId.ToString(),
+                fullName = therapist.FullName,
+                fullNameAr = therapist.FullNameAr,
+                email = therapist.User.Email,
+                phone = therapist.User.PhoneNumber,
+                centerId = therapist.CenterId.ToString(),
+                centerName = therapist.Center.NameEnglish ?? therapist.Center.NameArabic,
+                specialtyId = therapist.SpecialtyId.ToString(),
+                specialtyName = therapist.Specialty.NameEnglish ?? therapist.Specialty.NameArabic,
+                bio = therapist.Bio,
+                yearsOfExperience = therapist.YearsOfExperience,
+                profileImageUrl = therapist.ProfileImageUrl,
+                isActive = therapist.IsActive,
+                isAvailable = therapist.IsAvailable,
+                joinedAt = Iso(therapist.CreatedAt)
+            });
+        }
+
+        // ─────────────────────────────────────────────────────────────
+        //  9b. EDIT THERAPIST   PUT /api/admin/physiotherapists/{id}
+        // ─────────────────────────────────────────────────────────────
+
+        [HttpPut("physiotherapists/{id:int}")]
+        public async Task<IActionResult> UpdateTherapist(int id, AdminUpdateTherapistDto dto)
+        {
+            var therapist = await _db.Therapists
+                .Include(t => t.User)
+                .FirstOrDefaultAsync(t => t.TherapistId == id);
+
+            if (therapist == null)
+                return ApiError.NotFound("not_found", "Physiotherapist not found.");
+
+            if (string.IsNullOrWhiteSpace(dto.FullName))
+                return ApiError.Validation(
+                    new Dictionary<string, string[]> { ["FullName"] = ["Full name is required."] },
+                    "Full name is required.");
+
+            if (dto.CenterId.HasValue && !await _db.Centers.AnyAsync(c => c.CenterId == dto.CenterId))
+                return ApiError.NotFound("not_found", "Center not found.");
+
+            if (dto.SpecialtyId.HasValue && !await _db.Specialties.AnyAsync(s => s.SpecialtyId == dto.SpecialtyId))
+                return ApiError.NotFound("not_found", "Specialty not found.");
+
+            therapist.FullName = dto.FullName.Trim();
+            if (!string.IsNullOrWhiteSpace(dto.PhoneNumber))
+                therapist.User.PhoneNumber = dto.PhoneNumber.Trim();
+            if (dto.CenterId.HasValue)
+                therapist.CenterId = dto.CenterId.Value;
+            if (dto.SpecialtyId.HasValue)
+                therapist.SpecialtyId = dto.SpecialtyId.Value;
+            if (dto.YearsOfExperience.HasValue)
+                therapist.YearsOfExperience = dto.YearsOfExperience.Value;
+            if (dto.Bio != null)
+                therapist.Bio = string.IsNullOrWhiteSpace(dto.Bio) ? null : dto.Bio.Trim();
+            if (dto.IsAvailable.HasValue)
+                therapist.IsAvailable = dto.IsAvailable.Value;
+
+            therapist.User.UpdatedAt = DateTime.UtcNow;
+            await _db.SaveChangesAsync();
+
+            return Ok(new
+            {
+                id = therapist.TherapistId.ToString(),
+                fullName = therapist.FullName,
+                email = therapist.User.Email,
+                phone = therapist.User.PhoneNumber,
+                centerId = therapist.CenterId.ToString(),
+                specialtyId = therapist.SpecialtyId.ToString(),
+                yearsOfExperience = therapist.YearsOfExperience,
+                bio = therapist.Bio,
+                isActive = therapist.IsActive,
+                isAvailable = therapist.IsAvailable
+            });
+        }
+
+        // ─────────────────────────────────────────────────────────────
+        //  9c. DELETE THERAPIST   DELETE /api/admin/physiotherapists/{id}
+        // ─────────────────────────────────────────────────────────────
+
+        [HttpDelete("physiotherapists/{id:int}")]
+        public async Task<IActionResult> DeleteTherapist(int id)
+        {
+            var therapist = await _db.Therapists.AsNoTracking().FirstOrDefaultAsync(t => t.TherapistId == id);
+            if (therapist == null)
+                return ApiError.NotFound("not_found", "Physiotherapist not found.");
+
+            var userId = therapist.UserId;
+            var appointmentIds = await _db.Appointments.Where(a => a.TherapistId == id)
+                .Select(a => a.AppointmentId).ToListAsync();
+            var conversationIds = await _db.Conversations.Where(c => c.TherapistId == id)
+                .Select(c => c.ConversationId).ToListAsync();
+
+            await using var tx = await _db.Database.BeginTransactionAsync();
+
+            await _db.Reviews.Where(r => appointmentIds.Contains(r.AppointmentId)).ExecuteDeleteAsync();
+            await _db.AppointmentStatusHistories
+                .Where(h => appointmentIds.Contains(h.AppointmentId) || h.ChangedByUserId == userId)
+                .ExecuteDeleteAsync();
+            await _db.Appointments.Where(a => a.TherapistId == id).ExecuteDeleteAsync();
+            await _db.Messages.Where(m => conversationIds.Contains(m.ConversationId) || m.SenderUserId == userId).ExecuteDeleteAsync();
+            await _db.Conversations.Where(c => c.TherapistId == id).ExecuteDeleteAsync();
+            await _db.TherapistServices.Where(ts => ts.TherapistId == id).ExecuteDeleteAsync();
+            await _db.TherapistSchedules.Where(ts => ts.TherapistId == id).ExecuteDeleteAsync();
+            await _db.PatientNotes.Where(n => n.AuthorUserId == userId).ExecuteDeleteAsync();
+            await _db.Notifications.Where(n => n.UserId == userId).ExecuteDeleteAsync();
+            await _db.RefreshTokens.Where(t => t.UserId == userId).ExecuteDeleteAsync();
+            await _db.ExternalLogins.Where(e => e.UserId == userId).ExecuteDeleteAsync();
+            await _db.PasswordResetTokens.Where(t => t.UserId == userId).ExecuteDeleteAsync();
+            await _db.Therapists.Where(t => t.TherapistId == id).ExecuteDeleteAsync();
+            await _db.Users.Where(u => u.UserId == userId).ExecuteDeleteAsync();
+
+            await tx.CommitAsync();
+
+            return Ok(new { id = id.ToString(), deleted = true });
+        }
+
+        // ─────────────────────────────────────────────────────────────
         //  10. APPOINTMENTS LIST   GET /api/admin/appointments
         // ─────────────────────────────────────────────────────────────
 
@@ -856,6 +1221,8 @@ namespace graduatio_project.Controllers
             [FromQuery] int? therapistId,
             [FromQuery] int? patientId,
             [FromQuery] string? search,
+            // One exact day (YYYY-MM-DD) instead of a from/to range.
+            [FromQuery] string? date,
             [FromQuery] int page = 1,
             [FromQuery] int pageSize = 20)
         {
@@ -888,6 +1255,15 @@ namespace graduatio_project.Controllers
                     a.Center.NameArabic.ToLower().Contains(s));
             }
 
+            if (!string.IsNullOrWhiteSpace(date) &&
+                DateOnly.TryParseExact(date, "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out var day))
+            {
+                // Half-open range so the index on StartDateTime still applies.
+                var dayStart = day.ToDateTime(TimeOnly.MinValue);
+                var dayEnd = dayStart.AddDays(1);
+                q = q.Where(a => a.StartDateTime >= dayStart && a.StartDateTime < dayEnd);
+            }
+
             var total = await q.CountAsync();
 
             var items = await q
@@ -897,7 +1273,7 @@ namespace graduatio_project.Controllers
                 .Select(a => new
                 {
                     id = a.AppointmentId.ToString(),
-                    patient = new { id = a.PatientId.ToString(), name = a.Patient.FullName },
+                    patient = new { id = a.PatientId.ToString(), name = a.Patient.FullName, profileImageUrl = a.Patient.ProfileImageUrl },
                     center = new { id = a.CenterId.ToString(), name = a.Center.NameEnglish ?? a.Center.NameArabic },
                     therapist = new { id = a.TherapistId.ToString(), name = a.Therapist.FullName },
                     service = new { id = a.ServiceId.ToString(), name = a.Service.NameEnglish ?? a.Service.NameArabic },
@@ -912,13 +1288,35 @@ namespace graduatio_project.Controllers
                 })
                 .ToListAsync();
 
-            var statuses = new[] { "pending", "confirmed", "completed", "cancelled", "rejected" };
+            // The status filter must offer exactly the values the column shows,
+            // so the list comes from the table instead of a hardcoded set that
+            // can drift from the real data.
+            var storedStatuses = await _db.Appointments.AsNoTracking()
+                .Select(a => a.Status)
+                .Distinct()
+                .ToListAsync();
+
+            var canonicalOrder = new[] { "pending", "confirmed", "approved", "completed", "cancelled", "rejected" };
+            var statuses = canonicalOrder
+                .Where(s => storedStatuses.Any(v => string.Equals(v, s, StringComparison.OrdinalIgnoreCase)))
+                .Concat(storedStatuses
+                    .Select(v => v.ToLowerInvariant())
+                    .Where(v => !canonicalOrder.Contains(v))
+                    .Distinct()
+                    .OrderBy(v => v))
+                .ToList();
+
+            var centersFilter = await _db.Centers.AsNoTracking()
+                .Where(c => c.Status == "Approved")
+                .Select(c => new { id = c.CenterId.ToString(), name = c.NameEnglish ?? c.NameArabic })
+                .OrderBy(c => c.name)
+                .ToListAsync();
 
             return Ok(new
             {
                 items,
                 total,
-                filters = new { statuses }
+                filters = new { statuses, centers = centersFilter }
             });
         }
 
@@ -1037,6 +1435,129 @@ namespace graduatio_project.Controllers
                 status = appointment.Status.ToLowerInvariant(),
                 createdAt = Iso(appointment.CreatedAt)
             });
+        }
+
+        // ─────────────────────────────────────────────────────────────
+        //  12b. EDIT APPOINTMENT   PUT /api/admin/appointments/{id}
+        // ─────────────────────────────────────────────────────────────
+
+        [HttpPut("appointments/{id:int}")]
+        public async Task<IActionResult> UpdateAppointment(int id, AdminUpdateAppointmentDto dto)
+        {
+            var appointment = await _db.Appointments
+                .FirstOrDefaultAsync(a => a.AppointmentId == id);
+
+            if (appointment == null)
+                return ApiError.NotFound("not_found", "Appointment not found.");
+
+            if (dto.CenterId.HasValue)
+            {
+                if (!await _db.Centers.AnyAsync(c => c.CenterId == dto.CenterId))
+                    return ApiError.NotFound("not_found", "Center not found.");
+                appointment.CenterId = dto.CenterId.Value;
+            }
+
+            if (dto.TherapistId.HasValue)
+            {
+                if (!await _db.Therapists.AnyAsync(t => t.TherapistId == dto.TherapistId))
+                    return ApiError.NotFound("not_found", "Physiotherapist not found.");
+                appointment.TherapistId = dto.TherapistId.Value;
+            }
+
+            if (dto.ServiceId.HasValue)
+            {
+                var service = await _db.Services.AsNoTracking()
+                    .FirstOrDefaultAsync(s => s.ServiceId == dto.ServiceId);
+                if (service == null)
+                    return ApiError.NotFound("not_found", "Service not found.");
+                appointment.ServiceId = service.ServiceId;
+                appointment.PriceAtBooking = service.Price;
+            }
+
+            if (dto.StartDateTime.HasValue)
+                appointment.StartDateTime = dto.StartDateTime.Value;
+            if (dto.EndDateTime.HasValue)
+                appointment.EndDateTime = dto.EndDateTime.Value;
+
+            if (appointment.EndDateTime <= appointment.StartDateTime)
+                return ApiError.BadRequest("invalid_time", "EndDateTime must be after StartDateTime.");
+
+            if (!string.IsNullOrWhiteSpace(dto.Status))
+            {
+                var s = dto.Status.Trim().ToLowerInvariant();
+                var allowed = new[] { "pending", "confirmed", "approved", "completed", "cancelled", "rejected" };
+                if (!allowed.Contains(s))
+                    return ApiError.BadRequest("invalid_status",
+                        "Status must be pending, confirmed, approved, completed, cancelled, or rejected.");
+
+                if (!string.Equals(appointment.Status, s, StringComparison.OrdinalIgnoreCase))
+                {
+                    var stored = char.ToUpper(s[0]) + s[1..];
+                    _db.AppointmentStatusHistories.Add(new AppointmentStatusHistory
+                    {
+                        AppointmentId = appointment.AppointmentId,
+                        OldStatus = appointment.Status,
+                        NewStatus = stored,
+                        ChangedByUserId = CurrentUserId(),
+                        ChangedAt = DateTime.UtcNow
+                    });
+                    appointment.Status = stored;
+                }
+            }
+
+            if (dto.PatientNotes != null)
+                appointment.PatientNotes = string.IsNullOrWhiteSpace(dto.PatientNotes)
+                    ? null
+                    : dto.PatientNotes.Trim();
+
+            appointment.UpdatedAt = DateTime.UtcNow;
+            await _db.SaveChangesAsync();
+
+            var patientName = await _db.Patients.AsNoTracking()
+                .Where(p => p.PatientId == appointment.PatientId)
+                .Select(p => p.FullName)
+                .FirstOrDefaultAsync();
+
+            return Ok(new
+            {
+                id = appointment.AppointmentId.ToString(),
+                patientId = appointment.PatientId.ToString(),
+                patientName,
+                centerId = appointment.CenterId.ToString(),
+                therapistId = appointment.TherapistId.ToString(),
+                serviceId = appointment.ServiceId.ToString(),
+                startDateTime = Iso(appointment.StartDateTime),
+                endDateTime = Iso(appointment.EndDateTime),
+                price = appointment.PriceAtBooking,
+                status = appointment.Status.ToLowerInvariant(),
+                patientNotes = appointment.PatientNotes,
+                updatedAt = Iso(appointment.UpdatedAt!.Value)
+            });
+        }
+
+        // ─────────────────────────────────────────────────────────────
+        //  12c. DELETE APPOINTMENT   DELETE /api/admin/appointments/{id}
+        // ─────────────────────────────────────────────────────────────
+
+        [HttpDelete("appointments/{id:int}")]
+        public async Task<IActionResult> DeleteAppointment(int id)
+        {
+            var appointment = await _db.Appointments.AsNoTracking()
+                .FirstOrDefaultAsync(a => a.AppointmentId == id);
+
+            if (appointment == null)
+                return ApiError.NotFound("not_found", "Appointment not found.");
+
+            await using var tx = await _db.Database.BeginTransactionAsync();
+
+            // A review points at exactly one appointment and blocks its deletion.
+            await _db.Reviews.Where(r => r.AppointmentId == id).ExecuteDeleteAsync();
+            await _db.AppointmentStatusHistories.Where(h => h.AppointmentId == id).ExecuteDeleteAsync();
+            await _db.Appointments.Where(a => a.AppointmentId == id).ExecuteDeleteAsync();
+
+            await tx.CommitAsync();
+
+            return Ok(new { id = id.ToString(), deleted = true });
         }
 
         // ─────────────────────────────────────────────────────────────
@@ -1196,6 +1717,10 @@ namespace graduatio_project.Controllers
                 adminFullName = admin.FullName,
                 email = admin.User.Email,
                 phone = admin.User.PhoneNumber,
+                // The profile card shows who the account is, so the role and the
+                // account flag travel with the rest of the profile.
+                role = admin.User.Role,
+                isActive = admin.User.IsActive,
                 // Site-wide toggles can be extended with a dedicated settings table later
                 maintenanceMode = false,
                 //  تفضيلات الإشعارات: نفس الأعلام الأربعة المستخدمة في كل الأدوار
@@ -1260,6 +1785,8 @@ namespace graduatio_project.Controllers
                 adminFullName = admin.FullName,
                 email = admin.User.Email,
                 phone = admin.User.PhoneNumber,
+                role = admin.User.Role,
+                isActive = admin.User.IsActive,
                 maintenanceMode = false
             });
         }

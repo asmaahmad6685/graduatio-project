@@ -79,6 +79,90 @@ namespace graduatio_project.DTOs.Admin
         public string? PatientNotes { get; set; }
     }
 
+    // PUT /api/admin/patients/{id}
+    public class AdminUpdatePatientDto
+    {
+        [Required, MaxLength(150)]
+        public string FullName { get; set; } = string.Empty;
+
+        [MaxLength(20)]
+        public string? PhoneNumber { get; set; }
+
+        [MaxLength(100)]
+        public string? City { get; set; }
+
+        [MaxLength(20)]
+        public string? Gender { get; set; }
+
+        public DateOnly? DateOfBirth { get; set; }
+    }
+
+    // PUT /api/admin/physiotherapists/{id}
+    public class AdminUpdateTherapistDto
+    {
+        [Required, MaxLength(150)]
+        public string FullName { get; set; } = string.Empty;
+
+        [MaxLength(20)]
+        public string? PhoneNumber { get; set; }
+
+        public int? CenterId { get; set; }
+
+        public int? SpecialtyId { get; set; }
+
+        public int? YearsOfExperience { get; set; }
+
+        [MaxLength(1000)]
+        public string? Bio { get; set; }
+
+        public bool? IsAvailable { get; set; }
+    }
+
+    // PUT /api/admin/appointments/{id}
+    public class AdminUpdateAppointmentDto
+    {
+        public int? CenterId { get; set; }
+
+        public int? TherapistId { get; set; }
+
+        public int? ServiceId { get; set; }
+
+        public DateTime? StartDateTime { get; set; }
+
+        public DateTime? EndDateTime { get; set; }
+
+        [MaxLength(30)]
+        public string? Status { get; set; }
+
+        [MaxLength(1000)]
+        public string? PatientNotes { get; set; }
+    }
+
+    // PUT /api/admin/centers/{id}
+    public class AdminUpdateCenterDto
+    {
+        [MaxLength(150)]
+        public string? NameEnglish { get; set; }
+
+        [MaxLength(150)]
+        public string? NameArabic { get; set; }
+
+        [MaxLength(100)]
+        public string? City { get; set; }
+
+        [MaxLength(300)]
+        public string? Address { get; set; }
+
+        [MaxLength(300)]
+        public string? WebsiteUrl { get; set; }
+
+        [MaxLength(20)]
+        public string? PhoneNumber { get; set; }
+
+        [MaxLength(1000)]
+        public string? DescriptionEnglish { get; set; }
+    }
+
     // POST /api/admin/reviews/{id}/moderate
     public class ModerateReviewDto
     {
