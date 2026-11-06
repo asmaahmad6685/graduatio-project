@@ -74,51 +74,141 @@ namespace graduatio_project.Controllers
         [HttpGet("dashboard")]
         public async Task<IActionResult> GetDashboard([FromQuery] int? year)
         {
-            int y = year ?? DateTime.UtcNow.Year;
+            var now = DateTime.UtcNow;
+            int y = year ?? now.Year;
+            var yearStart = new DateTime(y, 1, 1, 0, 0, 0, DateTimeKind.Utc);
+            var yearEnd = yearStart.AddYears(1);
+            var monthStart = new DateTime(now.Year, now.Month, 1, 0, 0, 0, DateTimeKind.Utc);
+            var lastMonthStart = monthStart.AddMonths(-1);
 
-            // Aggregate counts
-            var totalCenters = await _db.Centers.CountAsync();
-            var pendingCenters = await _db.Centers.CountAsync(c => c.Status == "Pending");
-            var approvedCenters = await _db.Centers.CountAsync(c => c.Status == "Approved");
-
+            //  الأرقام الرئيسية: عدّ حقيقي من الجداول وليس قيمًا ثابتة
+            var activeCenters = await _db.Centers.CountAsync(c => c.Status == "Approved");
             var totalPatients = await _db.Patients.CountAsync();
             var totalTherapists = await _db.Therapists.CountAsync();
-            var totalAppointments = await _db.Appointments.CountAsync();
-            var totalReviews = await _db.Reviews.CountAsync();
 
-            // Monthly appointment counts for the requested year
-            var monthlyRaw = await _db.Appointments
-                .Where(a => a.CreatedAt.Year == y)
-                .GroupBy(a => a.CreatedAt.Month)
-                .Select(g => new { Month = g.Key, Count = g.Count() })
-                .ToListAsync();
+            //  منحنى كل مؤشر خلال السنة المختارة (يغذي الرسم المصغّر داخل الكرت)
+            var centerSeries = await MonthlySeriesAsync(
+                _db.Centers.Where(c => c.Status == "Approved" && c.ApprovedAt != null)
+                    .Select(c => c.ApprovedAt!.Value),
+                yearStart,
+                yearEnd);
 
-            var monthly = Enumerable.Range(1, 12)
-                .Select(m => new
-                {
-                    month = m,
-                    appointments = monthlyRaw.FirstOrDefault(r => r.Month == m)?.Count ?? 0
-                }).ToList();
+            var patientSeries = await MonthlySeriesAsync(
+                _db.Patients.Select(p => p.User.CreatedAt),
+                yearStart,
+                yearEnd);
 
-            // Recent center applications (last 10)
-            var recentApplications = await _db.Centers
-                .AsNoTracking()
-                .Include(c => c.User)
-                .OrderByDescending(c => c.CreatedAt)
-                .Take(10)
-                .Select(c => new
-                {
-                    id = c.CenterId.ToString(),
-                    name = c.NameEnglish ?? c.NameArabic,
-                    email = c.User.Email,
-                    status = c.Status.ToLowerInvariant(),
-                    submittedAt = Iso(c.CreatedAt)
-                })
-                .ToListAsync();
+            var therapistSeries = await MonthlySeriesAsync(
+                _db.Therapists.Select(t => t.CreatedAt),
+                yearStart,
+                yearEnd);
 
-            double? avgRating = await _db.Reviews.AnyAsync()
+            //  حجوزات كل شهر في السنة المختارة
+            var monthlyBookings = await MonthlySeriesAsync(
+                _db.Appointments.Select(a => a.CreatedAt),
+                yearStart,
+                yearEnd);
+
+            //  نسبة التغيّر = إضافات هذا الشهر مقابل الشهر السابق
+            var centersThisMonth = await _db.Centers.CountAsync(c =>
+                c.Status == "Approved" && c.ApprovedAt >= monthStart);
+            var centersLastMonth = await _db.Centers.CountAsync(c =>
+                c.Status == "Approved" && c.ApprovedAt >= lastMonthStart && c.ApprovedAt < monthStart);
+
+            var patientsThisMonth = await _db.Patients.CountAsync(p => p.User.CreatedAt >= monthStart);
+            var patientsLastMonth = await _db.Patients.CountAsync(p =>
+                p.User.CreatedAt >= lastMonthStart && p.User.CreatedAt < monthStart);
+
+            var therapistsThisMonth = await _db.Therapists.CountAsync(t => t.CreatedAt >= monthStart);
+            var therapistsLastMonth = await _db.Therapists.CountAsync(t =>
+                t.CreatedAt >= lastMonthStart && t.CreatedAt < monthStart);
+
+            //  صحة المنصة = نسبة المواعيد المكتملة من المواعيد المحسومة
+            var completedAppointments = await _db.Appointments.CountAsync(a => a.Status == "Completed");
+            var resolvedAppointments = await _db.Appointments.CountAsync(a =>
+                a.Status == "Completed" || a.Status == "Cancelled" || a.Status == "Rejected");
+            var healthPercent = resolvedAppointments == 0
+                ? 0
+                : (int)Math.Round(completedAppointments * 100d / resolvedAppointments);
+
+            //  متوسط زمن مراجعة طلبات المراكز بالساعات
+            //  نتجاهل أي صف تاريخ مراجعته أقدم من تاريخ تقديمه (بيانات غير متسقة)
+            var reviewMinutes = await _db.Centers
+                .Where(c => c.ReviewedAt != null && c.ReviewedAt >= c.CreatedAt)
+                .Select(c => (double?)EF.Functions.DateDiffMinute(c.CreatedAt, c.ReviewedAt!.Value))
+                .AverageAsync();
+            double? approvalResponse = reviewMinutes is double minutes
+                ? Math.Round(minutes / 60d, 1)
+                : null;
+
+            //  رضا المرضى = متوسط التقييمات
+            double? satisfaction = await _db.Reviews.AnyAsync()
                 ? Math.Round(await _db.Reviews.AverageAsync(r => (double)r.Rating), 1)
                 : null;
+
+            //  ما ينتظر قرارًا فعليًا: مراكز معلّقة، حسابات معالجين موقوفة، تقييمات مخفية
+            var pendingCenters = await _db.Centers.CountAsync(c => c.Status == "Pending");
+            var inactiveTherapists = await _db.Therapists.CountAsync(t => !t.IsActive);
+            var hiddenReviews = await _db.Reviews.CountAsync(r => !r.IsVisible);
+
+            //  آخر الأحداث الحقيقية من الجداول لشريط النشاط
+            var events = new List<(string Kind, int Id, DateTime At)>();
+
+            var submissions = await _db.Centers.AsNoTracking()
+                .OrderByDescending(c => c.CreatedAt)
+                .Take(5)
+                .Select(c => new { Id = c.CenterId, At = c.CreatedAt })
+                .ToListAsync();
+            events.AddRange(submissions.Select(x => ("centerSubmitted", x.Id, x.At)));
+
+            var reviewedCenters = await _db.Centers.AsNoTracking()
+                .Where(c => c.ReviewedAt != null)
+                .OrderByDescending(c => c.ReviewedAt)
+                .Take(5)
+                .Select(c => new { Id = c.CenterId, At = c.ReviewedAt!.Value })
+                .ToListAsync();
+            events.AddRange(reviewedCenters.Select(x => ("centerReviewed", x.Id, x.At)));
+
+            var therapistJoins = await _db.Therapists.AsNoTracking()
+                .OrderByDescending(t => t.CreatedAt)
+                .Take(5)
+                .Select(t => new { Id = t.TherapistId, At = t.CreatedAt })
+                .ToListAsync();
+            events.AddRange(therapistJoins.Select(x => ("therapistJoined", x.Id, x.At)));
+
+            var reviewPosts = await _db.Reviews.AsNoTracking()
+                .OrderByDescending(r => r.CreatedAt)
+                .Take(5)
+                .Select(r => new { Id = r.ReviewId, At = r.CreatedAt })
+                .ToListAsync();
+            events.AddRange(reviewPosts.Select(x => ("reviewPosted", x.Id, x.At)));
+
+            var patientJoins = await _db.Patients.AsNoTracking()
+                .OrderByDescending(p => p.User.CreatedAt)
+                .Take(5)
+                .Select(p => new { Id = p.PatientId, At = p.User.CreatedAt })
+                .ToListAsync();
+            events.AddRange(patientJoins.Select(x => ("patientJoined", x.Id, x.At)));
+
+            var activityText = new Dictionary<string, (string En, string Ar)>
+            {
+                ["centerSubmitted"] = ("Center application submitted", "تم إرسال طلب مركز"),
+                ["centerReviewed"] = ("Center application reviewed", "تمت مراجعة طلب مركز"),
+                ["therapistJoined"] = ("Physiotherapist account created", "تم إنشاء حساب معالج"),
+                ["reviewPosted"] = ("New patient review", "تم استلام تقييم جديد"),
+                ["patientJoined"] = ("Patient registered", "تم تسجيل مريض جديد"),
+            };
+
+            var activity = events
+                .OrderByDescending(e => e.At)
+                .Take(8)
+                .Select(e => new
+                {
+                    id = $"{e.Kind}-{e.Id}",
+                    text = new { en = activityText[e.Kind].En, ar = activityText[e.Kind].Ar },
+                    at = Iso(e.At)
+                })
+                .ToList();
 
             //  إشعارات الأدمن لعرضها في لوحة الإشعارات بالواجهة
             var notificationRows = await _db.Notifications.AsNoTracking()
@@ -131,22 +221,66 @@ namespace graduatio_project.Controllers
             return Ok(new
             {
                 year = y,
-                summary = new
+                metrics = new
                 {
-                    totalCenters,
-                    pendingCenters,
-                    approvedCenters,
-                    totalPatients,
-                    totalTherapists,
-                    totalAppointments,
-                    totalReviews,
-                    avgRating
+                    activeCenters = new
+                    {
+                        value = activeCenters,
+                        change = ChangePercent(centersThisMonth, centersLastMonth),
+                        series = centerSeries
+                    },
+                    registeredPatients = new
+                    {
+                        value = totalPatients,
+                        change = ChangePercent(patientsThisMonth, patientsLastMonth),
+                        series = patientSeries
+                    },
+                    physiotherapists = new
+                    {
+                        value = totalTherapists,
+                        change = ChangePercent(therapistsThisMonth, therapistsLastMonth),
+                        series = therapistSeries
+                    }
                 },
-                monthlyAppointments = monthly,
-                recentApplications,
+                monthlyBookings,
+                health = new
+                {
+                    percent = healthPercent,
+                    approvalResponse,
+                    satisfaction
+                },
+                pendingApprovals = new
+                {
+                    total = pendingCenters + inactiveTherapists + hiddenReviews,
+                    centers = pendingCenters,
+                    therapists = inactiveTherapists,
+                    reportedReviews = hiddenReviews
+                },
+                activity,
                 notifications
             });
         }
+
+        //  عدد السجلات لكل شهر في السنة المختارة (12 قيمة، والشهر الفارغ = 0)
+        private static async Task<List<int>> MonthlySeriesAsync(
+            IQueryable<DateTime> dates,
+            DateTime yearStart,
+            DateTime yearEnd)
+        {
+            var rows = await dates
+                .Where(d => d >= yearStart && d < yearEnd)
+                .GroupBy(d => d.Month)
+                .Select(g => new { Month = g.Key, Count = g.Count() })
+                .ToListAsync();
+
+            return Enumerable.Range(1, 12)
+                .Select(month => rows.FirstOrDefault(r => r.Month == month)?.Count ?? 0)
+                .ToList();
+        }
+
+        //  نسبة التغيّر بين شهرين؛ لا تُعرض عندما لا يوجد أساس للمقارنة
+        private static double? ChangePercent(int current, int previous)
+            => previous > 0 ? Math.Round((current - previous) * 100d / previous, 1) : null;
 
         // ─────────────────────────────────────────────────────────────
         //  NOTIFICATIONS   GET /api/admin/notifications
