@@ -46,6 +46,16 @@ namespace graduatio_project.Controllers
         private static string Iso(DateTime dt) => dt.ToString("yyyy-MM-dd'T'HH:mm:ss'Z'");
         private static string? Iso(DateTime? dt) => dt?.ToString("yyyy-MM-dd'T'HH:mm:ss'Z'");
 
+        //  نصوص أحداث سجل النشاط، مشتركة بين لوحة التحكم والقائمة الكاملة
+        private static readonly Dictionary<string, (string En, string Ar)> ActivityText = new()
+        {
+            ["centerSubmitted"] = ("Center application submitted", "تم إرسال طلب مركز"),
+            ["centerReviewed"] = ("Center application reviewed", "تمت مراجعة طلب مركز"),
+            ["therapistJoined"] = ("Physiotherapist account created", "تم إنشاء حساب معالج"),
+            ["reviewPosted"] = ("New patient review", "تم استلام تقييم جديد"),
+            ["patientJoined"] = ("Patient registered", "تم تسجيل مريض جديد"),
+        };
+
         //  شكل الإشعار الموحّد للوحة ولجرس شريط التنقل
         private static object NotificationDto(Notification n) => new
         {
@@ -191,22 +201,13 @@ namespace graduatio_project.Controllers
                 .ToListAsync();
             events.AddRange(patientJoins.Select(x => ("patientJoined", x.Id, x.At)));
 
-            var activityText = new Dictionary<string, (string En, string Ar)>
-            {
-                ["centerSubmitted"] = ("Center application submitted", "تم إرسال طلب مركز"),
-                ["centerReviewed"] = ("Center application reviewed", "تمت مراجعة طلب مركز"),
-                ["therapistJoined"] = ("Physiotherapist account created", "تم إنشاء حساب معالج"),
-                ["reviewPosted"] = ("New patient review", "تم استلام تقييم جديد"),
-                ["patientJoined"] = ("Patient registered", "تم تسجيل مريض جديد"),
-            };
-
             var activity = events
                 .OrderByDescending(e => e.At)
                 .Take(8)
                 .Select(e => new
                 {
                     id = $"{e.Kind}-{e.Id}",
-                    text = new { en = activityText[e.Kind].En, ar = activityText[e.Kind].Ar },
+                    text = new { en = ActivityText[e.Kind].En, ar = ActivityText[e.Kind].Ar },
                     at = Iso(e.At)
                 })
                 .ToList();
@@ -282,6 +283,60 @@ namespace graduatio_project.Controllers
         //  نسبة التغيّر بين شهرين؛ لا تُعرض عندما لا يوجد أساس للمقارنة
         private static double? ChangePercent(int current, int previous)
             => previous > 0 ? Math.Round((current - previous) * 100d / previous, 1) : null;
+
+        // ─────────────────────────────────────────────────────────────
+        //  1b. ACTIVITY LOG   GET /api/admin/activity?page=&pageSize=
+        //  Every real event from the tables, newest first, paginated.
+        // ─────────────────────────────────────────────────────────────
+
+        [HttpGet("activity")]
+        public async Task<IActionResult> GetActivity(
+            [FromQuery] int page = 1,
+            [FromQuery] int pageSize = 20)
+        {
+            page = Math.Max(1, page);
+            pageSize = Math.Clamp(pageSize, 1, 100);
+
+            //  Each source projects the same shape, so the five of them become
+            //  one UNION ALL and paging happens in the database.
+            var submissions = _db.Centers.AsNoTracking()
+                .Select(c => new { kind = "centerSubmitted", id = c.CenterId, at = c.CreatedAt });
+
+            var reviewedCenters = _db.Centers.AsNoTracking()
+                .Where(c => c.ReviewedAt != null)
+                .Select(c => new { kind = "centerReviewed", id = c.CenterId, at = c.ReviewedAt!.Value });
+
+            var therapistJoins = _db.Therapists.AsNoTracking()
+                .Select(t => new { kind = "therapistJoined", id = t.TherapistId, at = t.CreatedAt });
+
+            var reviewPosts = _db.Reviews.AsNoTracking()
+                .Select(r => new { kind = "reviewPosted", id = r.ReviewId, at = r.CreatedAt });
+
+            var patientJoins = _db.Patients.AsNoTracking()
+                .Select(p => new { kind = "patientJoined", id = p.PatientId, at = p.User.CreatedAt });
+
+            var events = submissions
+                .Concat(reviewedCenters)
+                .Concat(therapistJoins)
+                .Concat(reviewPosts)
+                .Concat(patientJoins);
+
+            var total = await events.CountAsync();
+            var rows = await events
+                .OrderByDescending(e => e.at)
+                .Skip((page - 1) * pageSize)
+                .Take(pageSize)
+                .ToListAsync();
+
+            var items = rows.Select(e => new
+            {
+                id = $"{e.kind}-{e.id}",
+                text = new { en = ActivityText[e.kind].En, ar = ActivityText[e.kind].Ar },
+                at = Iso(e.at)
+            }).ToList();
+
+            return Ok(new { items, total, page, pageSize });
+        }
 
         // ─────────────────────────────────────────────────────────────
         //  NOTIFICATIONS   GET /api/admin/notifications
