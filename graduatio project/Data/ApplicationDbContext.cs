@@ -127,6 +127,10 @@ namespace graduatio_project.Data
                 .HasForeignKey<Admin>(a => a.UserId)
                 .OnDelete(DeleteBehavior.Restrict);
 
+            modelBuilder.Entity<Admin>()
+                .Property(a => a.ProfileImageUrl)
+                .HasMaxLength(500);
+
             // Center -> Services (One-to-Many)
             modelBuilder.Entity<Service>()
                 .HasOne(s => s.Center)

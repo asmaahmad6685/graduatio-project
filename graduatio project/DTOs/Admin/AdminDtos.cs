@@ -187,6 +187,10 @@ namespace graduatio_project.DTOs.Admin
         [MaxLength(20)]
         public string? ContactPhone { get; set; }
 
+        //  صورة الأدمن: تُرسل بعد رفعها إلى /api/admin/settings/image
+        [MaxLength(500)]
+        public string? ProfileImageUrl { get; set; }
+
         [MaxLength(500)]
         public string? SiteDescription { get; set; }
 

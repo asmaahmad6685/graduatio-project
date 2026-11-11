@@ -1902,6 +1902,7 @@ namespace graduatio_project.Controllers
                 adminFullName = admin.FullName,
                 email = admin.User.Email,
                 phone = admin.User.PhoneNumber,
+                profileImageUrl = admin.ProfileImageUrl,
                 // The profile card shows who the account is, so the role and the
                 // account flag travel with the rest of the profile.
                 role = admin.User.Role,
@@ -1937,6 +1938,14 @@ namespace graduatio_project.Controllers
                 admin.User.UpdatedAt = DateTime.UtcNow;
             }
 
+            //  الصورة تُحدَّث فقط عند إرسالها، ويمكن محوها بإرسال نص فارغ
+            if (dto.ProfileImageUrl != null)
+            {
+                admin.ProfileImageUrl = string.IsNullOrWhiteSpace(dto.ProfileImageUrl)
+                    ? null
+                    : dto.ProfileImageUrl.Trim();
+            }
+
             // Email change not supported here — use /api/auth/change-email if needed
             // MaintenanceMode would need a global settings table; ignored for now
 
@@ -1970,10 +1979,32 @@ namespace graduatio_project.Controllers
                 adminFullName = admin.FullName,
                 email = admin.User.Email,
                 phone = admin.User.PhoneNumber,
+                profileImageUrl = admin.ProfileImageUrl,
                 role = admin.User.Role,
                 isActive = admin.User.IsActive,
                 maintenanceMode = false
             });
+        }
+
+        // ─────────────────────────────────────────────────────────────
+        //  16b. ADMIN PROFILE IMAGE   POST /api/admin/settings/image
+        //      multipart upload with the shared "file" field
+        // ─────────────────────────────────────────────────────────────
+
+        [HttpPost("settings/image")]
+        [RequestSizeLimit(ImageStorage.MaxBytes + 1024 * 1024)]
+        public async Task<IActionResult> UploadSettingsImage(
+            IFormFile? file,
+            [FromServices] IWebHostEnvironment environment)
+        {
+            var validation = ImageStorage.Validate(file);
+            if (validation != null)
+            {
+                return validation;
+            }
+
+            var url = await ImageStorage.SaveAsync(file!, environment);
+            return Ok(new { url });
         }
     }
 }

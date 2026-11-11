@@ -348,21 +348,37 @@ namespace graduatio_project.Controllers
         [HttpPut("account/profile")]
         public async Task<IActionResult> UpdateProfile(UpdateProfileDto dto)
         {
-            var resolved = await ResolvePatientAsync();
-            if (resolved.error != null)
+            //  قراءة متعقَّبة (بدون AsNoTracking) لأن هذا الإجراء يكتب: مع
+            //  القراءة المتعقَّبة لا يصل التعديل إلى قاعدة البيانات أبدًا
+            if (!CurrentUser.TryGetUserId(User, out var userId))
             {
-                return resolved.error;
+                return ApiError.Unauthorized("unauthenticated", "Authentication is required.");
             }
 
-            var patient = resolved.patient!;
-            var user = resolved.user!;
+            var user = await _context.Users
+                .FirstOrDefaultAsync(u => u.UserId == userId);
+            var patient = await _context.Patients
+                .FirstOrDefaultAsync(p => p.UserId == userId);
+
+            if (user == null || patient == null)
+            {
+                return ApiError.NotFound("not_found", "Patient profile not found.");
+            }
 
             patient.FullName = dto.FullName.Trim();
             patient.Gender = dto.Gender == null ? null : dto.Gender.ToLowerInvariant();
             patient.DateOfBirth = dto.DateOfBirth.HasValue
                     ? DateOnly.FromDateTime(dto.DateOfBirth.Value)
                     : null;
-            patient.ProfileImageUrl = dto.ProfileImageUrl;
+
+            //  الصورة تُحدَّث فقط عندما يرسلها العميل، حتى لا يمحوها حفظ
+            //  للبيانات الشخصية بدون صورة
+            if (dto.ProfileImageUrl != null)
+            {
+                patient.ProfileImageUrl = string.IsNullOrWhiteSpace(dto.ProfileImageUrl)
+                    ? null
+                    : dto.ProfileImageUrl.Trim();
+            }
 
             if (dto.PhoneNumber != null)
             {
