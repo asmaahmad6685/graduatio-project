@@ -356,6 +356,10 @@ namespace graduatio_project.Controllers
                     address = c.Address,
                     status = c.Status.ToLowerInvariant(),
                     profileImageUrl = c.ProfileImageUrl,
+                    //  Active therapists of the centre: the list's "Active Therapists"
+                    //  column. Without this the client shows 0 for every centre.
+                    activeTherapists = _db.Therapists.Count(t =>
+                        t.CenterId == c.CenterId && t.IsActive),
                     submittedAt = Iso(c.CreatedAt),
                     approvedAt = Iso(c.ApprovedAt),
                     rejectionReason = c.RejectionReason
