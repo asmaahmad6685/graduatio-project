@@ -207,6 +207,8 @@ namespace graduatio_project.Controllers
                 .Select(e => new
                 {
                     id = $"{e.Kind}-{e.Id}",
+                    kind = e.Kind,
+                    relatedId = e.Id.ToString(),
                     text = new { en = ActivityText[e.Kind].En, ar = ActivityText[e.Kind].Ar },
                     at = Iso(e.At)
                 })
@@ -331,6 +333,8 @@ namespace graduatio_project.Controllers
             var items = rows.Select(e => new
             {
                 id = $"{e.kind}-{e.id}",
+                kind = e.kind,
+                relatedId = e.id.ToString(),
                 text = new { en = ActivityText[e.kind].En, ar = ActivityText[e.kind].Ar },
                 at = Iso(e.at)
             }).ToList();
@@ -1631,6 +1635,7 @@ namespace graduatio_project.Controllers
             [FromQuery] int? maxRating,
             [FromQuery] string? search,
             [FromQuery] string? sort,       // newest (default) | oldest | highest
+            [FromQuery] int? reviewId,      //  تقييم واحد محدد (روابط سجل النشاط)
             [FromQuery] int page = 1,
             [FromQuery] int pageSize = 20)
         {
@@ -1644,6 +1649,9 @@ namespace graduatio_project.Controllers
 
             if (centerId.HasValue)
                 q = q.Where(r => r.CenterId == centerId.Value);
+
+            if (reviewId.HasValue)
+                q = q.Where(r => r.ReviewId == reviewId.Value);
 
             if (minRating.HasValue)
                 q = q.Where(r => r.Rating >= minRating.Value);
