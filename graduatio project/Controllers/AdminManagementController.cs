@@ -46,6 +46,14 @@ namespace graduatio_project.Controllers
         private static string Iso(DateTime dt) => dt.ToString("yyyy-MM-dd'T'HH:mm:ss'Z'");
         private static string? Iso(DateTime? dt) => dt?.ToString("yyyy-MM-dd'T'HH:mm:ss'Z'");
 
+        //  العمر بالسنوات في تاريخ معيّن (العمود "العمر" في قائمة المرضى)
+        private static int AgeOn(DateOnly birthDate, DateOnly today)
+        {
+            var age = today.Year - birthDate.Year;
+            if (birthDate > today.AddYears(-age)) age--;
+            return Math.Max(0, age);
+        }
+
         //  نصوص أحداث سجل النشاط، مشتركة بين لوحة التحكم والقائمة الكاملة
         private static readonly Dictionary<string, (string En, string Ar)> ActivityText = new()
         {
@@ -766,25 +774,67 @@ namespace graduatio_project.Controllers
 
             var total = await q.CountAsync();
 
-            var items = await q
+            //  الصفوف أولًا ثم إحصاء المواعيد دفعة واحدة، حتى تصل أعمدة الجدول
+            //  كاملة (العمر، عدد المواعيد، آخر زيارة، الحالة)
+            var rows = await q
                 .OrderByDescending(p => p.User.CreatedAt)
                 .Skip((page - 1) * pageSize)
                 .Take(pageSize)
                 .Select(p => new
                 {
-                    id = p.PatientId.ToString(),
-                    userId = p.UserId.ToString(),
+                    patientId = p.PatientId,
+                    userId = p.UserId,
                     fullName = p.FullName,
                     email = p.User.Email,
                     phone = p.User.PhoneNumber,
                     gender = p.Gender,
-                    dateOfBirth = p.DateOfBirth.HasValue ? p.DateOfBirth.Value.ToString("yyyy-MM-dd") : null,
+                    dateOfBirth = p.DateOfBirth,
                     city = p.City,
                     profileImageUrl = p.ProfileImageUrl,
                     isActive = p.User.IsActive,
-                    joinedAt = Iso(p.User.CreatedAt)
+                    joinedAt = p.User.CreatedAt
                 })
                 .ToListAsync();
+
+            var ids = rows.Select(r => r.patientId).ToList();
+            var stats = ids.Count == 0
+                ? new Dictionary<int, (int Count, DateTime? LastVisit)>()
+                : (await _db.Appointments.AsNoTracking()
+                    .Where(a => ids.Contains(a.PatientId))
+                    .GroupBy(a => a.PatientId)
+                    .Select(g => new
+                    {
+                        patientId = g.Key,
+                        count = g.Count(),
+                        lastVisit = g.Where(a => a.Status == "Completed")
+                            .Max(a => (DateTime?)a.StartDateTime)
+                    })
+                    .ToListAsync())
+                    .ToDictionary(x => x.patientId, x => (Count: x.count, LastVisit: x.lastVisit));
+
+            var today = DateOnly.FromDateTime(DateTime.UtcNow);
+            var items = rows.Select(r =>
+            {
+                stats.TryGetValue(r.patientId, out var stat);
+                return new
+                {
+                    id = r.patientId.ToString(),
+                    userId = r.userId.ToString(),
+                    fullName = r.fullName,
+                    email = r.email,
+                    phone = r.phone,
+                    gender = r.gender,
+                    dateOfBirth = r.dateOfBirth?.ToString("yyyy-MM-dd"),
+                    age = r.dateOfBirth.HasValue ? AgeOn(r.dateOfBirth.Value, today) : (int?)null,
+                    city = r.city,
+                    profileImageUrl = r.profileImageUrl,
+                    status = r.isActive ? "active" : "suspended",
+                    isActive = r.isActive,
+                    appointments = stat.Count,
+                    lastVisit = Iso(stat.LastVisit),
+                    joinedAt = Iso(r.joinedAt)
+                };
+            }).ToList();
 
             var genders = await _db.Patients.AsNoTracking()
                 .Where(p => p.Gender != null)
@@ -989,14 +1039,14 @@ namespace graduatio_project.Controllers
 
             var total = await q.CountAsync();
 
-            var items = await q
+            var rows = await q
                 .OrderByDescending(t => t.CreatedAt)
                 .Skip((page - 1) * pageSize)
                 .Take(pageSize)
                 .Select(t => new
                 {
-                    id = t.TherapistId.ToString(),
-                    userId = t.UserId.ToString(),
+                    therapistId = t.TherapistId,
+                    userId = t.UserId,
                     fullName = t.FullName,
                     fullNameAr = t.FullNameAr,
                     email = t.User.Email,
@@ -1009,9 +1059,55 @@ namespace graduatio_project.Controllers
                     profileImageUrl = t.ProfileImageUrl,
                     isActive = t.IsActive,
                     isAvailable = t.IsAvailable,
-                    joinedAt = Iso(t.CreatedAt)
+                    joinedAt = t.CreatedAt
                 })
                 .ToListAsync();
+
+            //  تقييم المعالج الحقيقي = متوسط تقييمات المرضى الظاهرة لمواعيده
+            //  (نفس قاعدة بيانات المركز العامة في CenterMapper)
+            var ids = rows.Select(r => r.therapistId).ToList();
+            var ratingRows = ids.Count == 0
+                ? new List<(int TherapistId, int Count, double Average)>()
+                : (await _db.Reviews.AsNoTracking()
+                    .Where(r => r.IsVisible && ids.Contains(r.Appointment.TherapistId))
+                    .GroupBy(r => r.Appointment.TherapistId)
+                    .Select(g => new
+                    {
+                        therapistId = g.Key,
+                        count = g.Count(),
+                        average = g.Average(r => (double)r.Rating)
+                    })
+                    .ToListAsync())
+                    .Select(x => (TherapistId: x.therapistId, Count: x.count, Average: x.average))
+                    .ToList();
+            var ratings = ratingRows.ToDictionary(
+                x => x.TherapistId,
+                x => (x.Count, Rating: (double?)Math.Round(x.Average, 1)));
+
+            var items = rows.Select(r =>
+            {
+                ratings.TryGetValue(r.therapistId, out var rating);
+                return new
+                {
+                    id = r.therapistId.ToString(),
+                    userId = r.userId.ToString(),
+                    fullName = r.fullName,
+                    fullNameAr = r.fullNameAr,
+                    email = r.email,
+                    phone = r.phone,
+                    center = r.center,
+                    specialty = r.specialty,
+                    bio = r.bio,
+                    bioAr = r.bioAr,
+                    yearsOfExperience = r.yearsOfExperience,
+                    profileImageUrl = r.profileImageUrl,
+                    rating = rating.Rating,
+                    reviews = rating.Count,
+                    isActive = r.isActive,
+                    isAvailable = r.isAvailable,
+                    joinedAt = Iso(r.joinedAt)
+                };
+            }).ToList();
 
             var specialties = await _db.Specialties.AsNoTracking()
                 .Where(s => s.IsActive)
@@ -1397,7 +1493,7 @@ namespace graduatio_project.Controllers
                 .OrderBy(c => c.name)
                 .ToListAsync();
 
-            var therapists = await _db.Therapists.AsNoTracking()
+            var therapistRows = await _db.Therapists.AsNoTracking()
                 .Include(t => t.Specialty)
                 .Where(t => t.IsActive)
                 .Select(t => new
@@ -1409,6 +1505,28 @@ namespace graduatio_project.Controllers
                 })
                 .OrderBy(t => t.name)
                 .ToListAsync();
+
+            //  خدمات كل معالج: قائمة الخدمة في نموذج الموعد تتبع المعالج المختار
+            var serviceIdsByTherapist = (await _db.TherapistServices.AsNoTracking()
+                    .Select(x => new { TherapistId = x.TherapistId, ServiceId = x.ServiceId })
+                    .ToListAsync())
+                .GroupBy(x => x.TherapistId.ToString())
+                .ToDictionary(
+                    g => g.Key,
+                    g => g.Select(x => x.ServiceId.ToString()).Distinct().ToList());
+
+            var therapists = therapistRows
+                .Select(t => new
+                {
+                    t.id,
+                    t.name,
+                    t.centerId,
+                    t.specialty,
+                    serviceIds = serviceIdsByTherapist.TryGetValue(t.id, out var ids)
+                        ? ids
+                        : new List<string>()
+                })
+                .ToList();
 
             var patients = await _db.Patients.AsNoTracking()
                 .Include(p => p.User)
