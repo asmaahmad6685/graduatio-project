@@ -383,9 +383,13 @@ namespace graduatio_project.Controllers
             [FromQuery] string? status,
             [FromQuery] string? search,
             [FromQuery] string? city,
+            [FromQuery] string? specialty,
             [FromQuery] int page = 1,
             [FromQuery] int pageSize = 20)
         {
+            page = Math.Max(1, page);
+            pageSize = Math.Clamp(pageSize, 1, 100);
+
             var q = _db.Centers.AsNoTracking().Include(c => c.User).AsQueryable();
 
             if (!string.IsNullOrWhiteSpace(status))
@@ -394,18 +398,39 @@ namespace graduatio_project.Controllers
             if (!string.IsNullOrWhiteSpace(city))
                 q = q.Where(c => c.City.ToLower() == city.ToLower());
 
+            //  التخصص صفة لمعالجي المركز: يظهر المركز عندما يحمل أحد معالجيه
+            //  هذا التخصص. نقارن بالاسم لأن جدول التخصصات يحتوي أسماء مكررة
+            //  بأرقام مختلفة، فالمقارنة بالرقم كانت ستُخفي مراكز.
+            if (!string.IsNullOrWhiteSpace(specialty))
+            {
+                var sp = specialty.Trim().ToLower();
+                q = q.Where(c => _db.Therapists.Any(t =>
+                    t.CenterId == c.CenterId &&
+                    ((t.Specialty.NameEnglish != null && t.Specialty.NameEnglish.ToLower() == sp) ||
+                     t.Specialty.NameArabic.ToLower() == sp)));
+            }
+
             if (!string.IsNullOrWhiteSpace(search))
             {
                 var s = search.ToLower();
                 q = q.Where(c =>
                     c.NameArabic.ToLower().Contains(s) ||
                     (c.NameEnglish != null && c.NameEnglish.ToLower().Contains(s)) ||
-                    c.User.Email.ToLower().Contains(s));
+                    c.User.Email.ToLower().Contains(s) ||
+                    (c.User.PhoneNumber != null && c.User.PhoneNumber.Contains(s)) ||
+                    c.City.ToLower().Contains(s));
             }
 
             var total = await q.CountAsync();
             var cities = await _db.Centers.AsNoTracking()
                 .Select(c => c.City).Distinct().OrderBy(c => c).ToListAsync();
+            //  أسماء فريدة حتى لا يتكرر الخيار نفسه في القائمة
+            var specialties = await _db.Specialties.AsNoTracking()
+                .Where(s => s.IsActive)
+                .Select(s => s.NameEnglish ?? s.NameArabic)
+                .Distinct()
+                .OrderBy(name => name)
+                .ToListAsync();
 
             var items = await q
                 .OrderByDescending(c => c.CreatedAt)
@@ -437,7 +462,7 @@ namespace graduatio_project.Controllers
             {
                 items,
                 total,
-                filters = new { cities }
+                filters = new { cities, specialties }
             });
         }
 
