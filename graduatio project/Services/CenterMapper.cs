@@ -115,6 +115,9 @@ namespace graduatio_project.Services
                     address = center.Address,
                     addressArabic = center.AddressArabic,
                     websiteUrl = center.WebsiteUrl,
+                    latitude = center.Latitude,
+                    longitude = center.Longitude,
+                    locationConfirmed = center.LocationConfirmed,
                     city = center.City,
                     hours = new
                     {
