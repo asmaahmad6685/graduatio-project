@@ -751,6 +751,8 @@ namespace graduatio_project.Controllers
         public async Task<IActionResult> GetPatients(
             [FromQuery] string? search,
             [FromQuery] string? gender,
+            [FromQuery] string? city,
+            [FromQuery] string? sort,       // recent (آخر نشاط) | newest (default)
             [FromQuery] bool? isActive,
             [FromQuery] int page = 1,
             [FromQuery] int pageSize = 20)
@@ -769,6 +771,14 @@ namespace graduatio_project.Controllers
             if (!string.IsNullOrWhiteSpace(gender))
                 q = q.Where(p => p.Gender != null && p.Gender.ToLower() == gender.ToLower());
 
+            //  المدينة تُقارن بدون حساسية لحالة الأحرف لأن الأسماء تصل من
+            //  قائمة الاختيار كما خزنتها السجلات
+            if (!string.IsNullOrWhiteSpace(city))
+            {
+                var cityName = city.Trim().ToLower();
+                q = q.Where(p => p.City != null && p.City.ToLower() == cityName);
+            }
+
             if (isActive.HasValue)
                 q = q.Where(p => p.User.IsActive == isActive.Value);
 
@@ -776,8 +786,16 @@ namespace graduatio_project.Controllers
 
             //  الصفوف أولًا ثم إحصاء المواعيد دفعة واحدة، حتى تصل أعمدة الجدول
             //  كاملة (العمر، عدد المواعيد، آخر زيارة، الحالة)
-            var rows = await q
-                .OrderByDescending(p => p.User.CreatedAt)
+            //  الترتيب الافتراضي: الأحدث انضمامًا. "recent" يعني الأحدث نشاطًا:
+            //  آخر موعد للمريض، وإذا لم يكن له مواعيد فتاريخ انضمامه
+            IOrderedQueryable<Patient> ordered = sort?.Trim().ToLowerInvariant() == "recent"
+                ? q.OrderByDescending(p => _db.Appointments
+                        .Where(a => a.PatientId == p.PatientId)
+                        .Max(a => (DateTime?)a.StartDateTime) ?? p.User.CreatedAt)
+                    .ThenByDescending(p => p.User.CreatedAt)
+                : q.OrderByDescending(p => p.User.CreatedAt);
+
+            var rows = await ordered
                 .Skip((page - 1) * pageSize)
                 .Take(pageSize)
                 .Select(p => new
@@ -840,11 +858,19 @@ namespace graduatio_project.Controllers
                 .Where(p => p.Gender != null)
                 .Select(p => p.Gender!).Distinct().OrderBy(g => g).ToListAsync();
 
+            //  قائمة المدن تملأ قائمة التصفية، فتأتي من كل المرضى لا من الصفحة
+            var cities = await _db.Patients.AsNoTracking()
+                .Where(p => p.City != null && p.City != "")
+                .Select(p => p.City!)
+                .Distinct()
+                .OrderBy(c => c)
+                .ToListAsync();
+
             return Ok(new
             {
                 items,
                 total,
-                filters = new { genders }
+                filters = new { genders, cities }
             });
         }
 
