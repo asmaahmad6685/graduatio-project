@@ -301,6 +301,10 @@ namespace graduatio_project.Controllers
             if (dto.DescriptionArabic != null) center.DescriptionArabic = dto.DescriptionArabic.Trim();
             if (dto.City != null) center.City = dto.City.Trim();
             if (dto.Address != null) center.Address = dto.Address.Trim();
+            if (dto.AddressArabic != null)
+                center.AddressArabic = string.IsNullOrWhiteSpace(dto.AddressArabic)
+                    ? null
+                    : dto.AddressArabic.Trim();
             if (dto.ProfileImageUrl != null) center.ProfileImageUrl = dto.ProfileImageUrl.Trim();
             if (dto.WebsiteUrl != null) center.WebsiteUrl = dto.WebsiteUrl.Trim();
             if (dto.Latitude.HasValue) center.Latitude = dto.Latitude;

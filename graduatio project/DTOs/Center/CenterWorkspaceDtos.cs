@@ -23,6 +23,9 @@ namespace graduatio_project.DTOs.Center
         [MaxLength(300)]
         public string? Address { get; set; }
 
+        [MaxLength(300)]
+        public string? AddressArabic { get; set; }
+
         [MaxLength(500)]
         public string? ProfileImageUrl { get; set; }
 

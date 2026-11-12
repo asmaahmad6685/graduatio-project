@@ -113,6 +113,8 @@ namespace graduatio_project.Services
                     gallery = centerImages.Select(i => i.ImageUrl).ToList(),
                     about = Pick(center.DescriptionEnglish, center.DescriptionArabic),
                     address = center.Address,
+                    addressArabic = center.AddressArabic,
+                    websiteUrl = center.WebsiteUrl,
                     city = center.City,
                     hours = new
                     {

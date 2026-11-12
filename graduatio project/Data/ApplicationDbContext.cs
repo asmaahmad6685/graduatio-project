@@ -496,6 +496,10 @@ namespace graduatio_project.Data
                 .IsRequired();
 
             modelBuilder.Entity<Center>()
+                .Property(c => c.AddressArabic)
+                .HasMaxLength(300);
+
+            modelBuilder.Entity<Center>()
                 .Property(c => c.ProfileImageUrl)
                 .HasMaxLength(500);
 

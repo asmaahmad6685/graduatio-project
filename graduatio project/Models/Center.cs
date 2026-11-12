@@ -18,6 +18,8 @@
 
         public string Address { get; set; } = string.Empty;
 
+        public string? AddressArabic { get; set; }
+
         public string? ProfileImageUrl { get; set; }
 
         public string? WebsiteUrl { get; set; }

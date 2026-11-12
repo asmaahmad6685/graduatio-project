@@ -371,6 +371,12 @@ namespace graduatio_project.Controllers
                     ? DateOnly.FromDateTime(dto.DateOfBirth.Value)
                     : null;
 
+            //  المدينة تظهر في الملف الشخصي وفي شاشات المركز، فحفظها هنا
+            if (dto.City != null)
+            {
+                patient.City = string.IsNullOrWhiteSpace(dto.City) ? null : dto.City.Trim();
+            }
+
             //  الصورة تُحدَّث فقط عندما يرسلها العميل، حتى لا يمحوها حفظ
             //  للبيانات الشخصية بدون صورة
             if (dto.ProfileImageUrl != null)
@@ -440,6 +446,65 @@ namespace graduatio_project.Controllers
         //  المراكز المفضلة  GET/PUT/DELETE /api/patient/saved-centers
         //  المريض يحفظ مركزًا فيظهر في تبويب "المحفوظة" وفي قلوب البطاقات
         // ─────────────────────────────────────────────────────────────
+
+        //  تقييم مركز: يُربط بأحدث موعد مكتمل لهذا المريض في المركز ولم
+        //  يُقيَّم بعد، لأن جدول التقييمات يسمح بتقييم واحد لكل موعد
+        [HttpPost("reviews")]
+        public async Task<IActionResult> CreateReview(CreatePatientReviewDto dto)
+        {
+            var resolved = await ResolvePatientAsync();
+            if (resolved.error != null)
+            {
+                return resolved.error;
+            }
+
+            var patientId = resolved.patient!.PatientId;
+
+            var centerExists = await _context.Centers.AsNoTracking()
+                .AnyAsync(c => c.CenterId == dto.CenterId && c.Status == "Approved");
+
+            if (!centerExists)
+            {
+                return ApiError.NotFound("not_found", "Center not found.");
+            }
+
+            var appointment = await _context.Appointments.AsNoTracking()
+                .Where(a => a.PatientId == patientId
+                    && a.CenterId == dto.CenterId
+                    && a.Status == "Completed"
+                    && !_context.Reviews.Any(r => r.AppointmentId == a.AppointmentId))
+                .OrderByDescending(a => a.StartDateTime)
+                .FirstOrDefaultAsync();
+
+            if (appointment == null)
+            {
+                return ApiError.BadRequest("review_not_allowed",
+                    "You can review this center after a completed appointment.");
+            }
+
+            var review = new Review
+            {
+                PatientId = patientId,
+                CenterId = dto.CenterId,
+                AppointmentId = appointment.AppointmentId,
+                Rating = dto.Rating,
+                Comment = string.IsNullOrWhiteSpace(dto.Comment) ? null : dto.Comment.Trim(),
+                IsVisible = true,
+                CreatedAt = DateTime.UtcNow
+            };
+
+            _context.Reviews.Add(review);
+            await _context.SaveChangesAsync();
+
+            return Ok(new
+            {
+                id = review.ReviewId.ToString(),
+                centerId = review.CenterId.ToString(),
+                rating = review.Rating,
+                comment = review.Comment,
+                createdAt = review.CreatedAt.ToString("yyyy-MM-dd'T'HH:mm:ss'Z'")
+            });
+        }
 
         [HttpGet("saved-centers")]
         public async Task<IActionResult> GetSavedCenters()
@@ -582,6 +647,7 @@ namespace graduatio_project.Controllers
             phone = user.PhoneNumber,
             gender = patient.Gender,
             dateOfBirth = patient.DateOfBirth?.ToString("yyyy-MM-dd"),
+            city = patient.City,
             imageUrl = patient.ProfileImageUrl,
             status = user.IsActive ? "active" : "inactive"
         };
