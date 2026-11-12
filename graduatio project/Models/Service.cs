@@ -20,6 +20,9 @@
 
         public int DurationMinutes { get; set; }
 
+        //  صورة الخدمة: رابط واحد يظهر في بطاقة الخدمة لدى المركز والمريض
+        public string? ImageUrl { get; set; }
+
         public bool IsActive { get; set; } = true;
 
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;

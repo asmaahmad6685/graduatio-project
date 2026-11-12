@@ -105,7 +105,11 @@ namespace graduatio_project.Services
                 {
                     id = center.CenterId.ToString(),
                     name = Pick(center.NameEnglish, center.NameArabic),
-                    imageUrl = primary?.ImageUrl ?? center.ProfileImageUrl,
+                    //  The centre's own profile photo wins; a gallery photo is
+                    //  only the fallback until they upload one.
+                    imageUrl = string.IsNullOrWhiteSpace(center.ProfileImageUrl)
+                        ? primary?.ImageUrl
+                        : center.ProfileImageUrl,
                     gallery = centerImages.Select(i => i.ImageUrl).ToList(),
                     about = Pick(center.DescriptionEnglish, center.DescriptionArabic),
                     address = center.Address,
@@ -130,7 +134,7 @@ namespace graduatio_project.Services
                         description = Pick(s.DescriptionEnglish, s.DescriptionArabic),
                         price = s.Price,
                         duration = s.DurationMinutes,
-                        imageUrl = (string?)null,
+                        imageUrl = s.ImageUrl,
                         specialty = s.Specialty == null
                             ? null
                             : Pick(s.Specialty.NameEnglish, s.Specialty.NameArabic)

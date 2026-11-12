@@ -211,6 +211,7 @@ namespace graduatio_project.Controllers
                     descriptionArabic = s.DescriptionArabic,
                     price = s.Price,
                     duration = s.DurationMinutes,
+                    imageUrl = s.ImageUrl,
                     specialtyId = s.SpecialtyId,
                     specialty = s.Specialty == null
                         ? null
@@ -305,6 +306,35 @@ namespace graduatio_project.Controllers
             if (dto.Latitude.HasValue) center.Latitude = dto.Latitude;
             if (dto.Longitude.HasValue) center.Longitude = dto.Longitude;
             if (dto.LocationConfirmed.HasValue) center.LocationConfirmed = dto.LocationConfirmed.Value;
+
+            //  البريد والهاتف يعيشان على حساب المستخدم، وليس على صف المركز.
+            //  البريد هو اسم الدخول، فلا يصلح أن يكون بريد حساب آخر
+            var account = await _context.Users
+                .FirstOrDefaultAsync(u => u.UserId == center.UserId);
+
+            if (account != null && !string.IsNullOrWhiteSpace(dto.Email))
+            {
+                var email = dto.Email.Trim();
+                var taken = await _context.Users.AnyAsync(u =>
+                    u.UserId != center.UserId && u.Email.ToLower() == email.ToLower());
+
+                if (taken)
+                {
+                    return ApiError.Validation(new Dictionary<string, string[]>
+                    {
+                        ["email"] = new[] { "This email is already used by another account." }
+                    }, "This email is already used by another account.");
+                }
+
+                account.Email = email;
+                account.UpdatedAt = DateTime.UtcNow;
+            }
+
+            if (account != null && !string.IsNullOrWhiteSpace(dto.PhoneNumber))
+            {
+                account.PhoneNumber = dto.PhoneNumber.Trim();
+                account.UpdatedAt = DateTime.UtcNow;
+            }
 
             center.UpdatedAt = DateTime.UtcNow;
             await _context.SaveChangesAsync();
@@ -492,6 +522,36 @@ namespace graduatio_project.Controllers
             return NoContent();
         }
 
+        //  حذف صورة من المعرض بالرابط: واجهة المركز تعرف الروابط فقط
+        [HttpDelete("workspace/images")]
+        public async Task<IActionResult> DeleteImageByUrl([FromQuery] string? url)
+        {
+            var resolved = await ResolveCenterAsync();
+            if (resolved.error != null)
+            {
+                return resolved.error;
+            }
+
+            if (string.IsNullOrWhiteSpace(url))
+            {
+                return ApiError.BadRequest("invalid_request", "The image URL is required.");
+            }
+
+            var images = await _context.CenterImages
+                .Where(i => i.CenterId == resolved.center!.CenterId && i.ImageUrl == url.Trim())
+                .ToListAsync();
+
+            if (images.Count == 0)
+            {
+                return ApiError.NotFound("not_found", "Image not found.");
+            }
+
+            _context.CenterImages.RemoveRange(images);
+            await _context.SaveChangesAsync();
+
+            return Ok(new { removed = images.Count });
+        }
+
         [HttpPost("workspace/services")]
         public async Task<IActionResult> AddService(SaveServiceDto dto)
         {
@@ -517,6 +577,7 @@ namespace graduatio_project.Controllers
                 DescriptionArabic = dto.DescriptionArabic,
                 Price = dto.Price,
                 DurationMinutes = dto.DurationMinutes,
+                ImageUrl = string.IsNullOrWhiteSpace(dto.ImageUrl) ? null : dto.ImageUrl.Trim(),
                 IsActive = dto.IsActive,
                 CreatedAt = DateTime.UtcNow
             };
@@ -565,6 +626,13 @@ namespace graduatio_project.Controllers
             service.DescriptionArabic = dto.DescriptionArabic;
             service.Price = dto.Price;
             service.DurationMinutes = dto.DurationMinutes;
+            //  null يعني "بدون تغيير"، والنص الفارغ يمحو صورة الخدمة
+            if (dto.ImageUrl != null)
+            {
+                service.ImageUrl = string.IsNullOrWhiteSpace(dto.ImageUrl)
+                    ? null
+                    : dto.ImageUrl.Trim();
+            }
             service.IsActive = dto.IsActive;
 
             await _context.SaveChangesAsync();

@@ -436,6 +436,121 @@ namespace graduatio_project.Controllers
             return Ok(new { url });
         }
 
+        // ─────────────────────────────────────────────────────────────
+        //  المراكز المفضلة  GET/PUT/DELETE /api/patient/saved-centers
+        //  المريض يحفظ مركزًا فيظهر في تبويب "المحفوظة" وفي قلوب البطاقات
+        // ─────────────────────────────────────────────────────────────
+
+        [HttpGet("saved-centers")]
+        public async Task<IActionResult> GetSavedCenters()
+        {
+            var resolved = await ResolvePatientAsync();
+            if (resolved.error != null)
+            {
+                return resolved.error;
+            }
+
+            var patientId = resolved.patient!.PatientId;
+
+            //  نعرض المفضلة حتى لو تغيّرت حالة المركز لاحقًا، حتى لا يختفي
+            //  ما حفظه المريض من قائمته
+            var saved = await _context.PatientSavedCenters.AsNoTracking()
+                .Where(sc => sc.PatientId == patientId)
+                .OrderByDescending(sc => sc.SavedAt)
+                .ThenBy(sc => sc.CenterId)
+                .Select(sc => new SavedCenterDto
+                {
+                    CenterId = sc.CenterId,
+                    NameArabic = sc.Center.NameArabic,
+                    NameEnglish = sc.Center.NameEnglish,
+                    DescriptionArabic = sc.Center.DescriptionArabic,
+                    DescriptionEnglish = sc.Center.DescriptionEnglish,
+                    City = sc.Center.City,
+                    Address = sc.Center.Address,
+                    ProfileImageUrl = sc.Center.ProfileImageUrl,
+                    Latitude = sc.Center.Latitude,
+                    Longitude = sc.Center.Longitude,
+                    Status = sc.Center.Status,
+                    IsSaved = true,
+                    SavedAt = sc.SavedAt
+                })
+                .ToListAsync();
+
+            return Ok(saved);
+        }
+
+        [HttpPut("saved-centers/{centerId:int}")]
+        public async Task<IActionResult> SaveCenter(int centerId)
+        {
+            var resolved = await ResolvePatientAsync();
+            if (resolved.error != null)
+            {
+                return resolved.error;
+            }
+
+            var patientId = resolved.patient!.PatientId;
+
+            var center = await _context.Centers.AsNoTracking()
+                .Where(c => c.CenterId == centerId)
+                .Select(c => new { c.Status, c.User.IsActive })
+                .FirstOrDefaultAsync();
+
+            if (center == null)
+            {
+                return ApiError.NotFound("not_found", "Center not found.");
+            }
+
+            var alreadySaved = await _context.PatientSavedCenters
+                .AnyAsync(sc => sc.PatientId == patientId && sc.CenterId == centerId);
+
+            if (alreadySaved)
+            {
+                return Ok(new { centerId = centerId.ToString(), isSaved = true });
+            }
+
+            if (center.Status != "Approved" || !center.IsActive)
+            {
+                return ApiError.BadRequest("center_unavailable",
+                    "Only approved, active centers can be saved.");
+            }
+
+            _context.PatientSavedCenters.Add(new PatientSavedCenter
+            {
+                PatientId = patientId,
+                CenterId = centerId
+            });
+
+            try
+            {
+                await _context.SaveChangesAsync();
+            }
+            catch (DbUpdateException)
+            {
+                //  حفظان متزامنان: المفتاح المركب رفض الصف الثاني، والنتيجة
+                //  عند المريض واحدة، فهي نجاح
+                _context.ChangeTracker.Clear();
+            }
+
+            return Ok(new { centerId = centerId.ToString(), isSaved = true });
+        }
+
+        [HttpDelete("saved-centers/{centerId:int}")]
+        public async Task<IActionResult> RemoveSavedCenter(int centerId)
+        {
+            var resolved = await ResolvePatientAsync();
+            if (resolved.error != null)
+            {
+                return resolved.error;
+            }
+
+            //  حذف صف غير موجود نتيجة صحيحة أيضًا
+            await _context.PatientSavedCenters
+                .Where(sc => sc.PatientId == resolved.patient!.PatientId && sc.CenterId == centerId)
+                .ExecuteDeleteAsync();
+
+            return Ok(new { centerId = centerId.ToString(), isSaved = false });
+        }
+
         //  نتأكد أن الـ Token يخص مريضًا موجودًا فعلًا
         private async Task<(Patient? patient, User? user, IActionResult? error)> ResolvePatientAsync()
         {

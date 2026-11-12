@@ -26,6 +26,13 @@ namespace graduatio_project.DTOs.Center
         [MaxLength(500)]
         public string? ProfileImageUrl { get; set; }
 
+        [EmailAddress]
+        [MaxLength(254)]
+        public string? Email { get; set; }
+
+        [MaxLength(30)]
+        public string? PhoneNumber { get; set; }
+
         [MaxLength(500)]
         public string? WebsiteUrl { get; set; }
 
@@ -87,6 +94,9 @@ namespace graduatio_project.DTOs.Center
 
         [Range(1, int.MaxValue)]
         public int SpecialtyId { get; set; }
+
+        [MaxLength(500)]
+        public string? ImageUrl { get; set; }
 
         public bool IsActive { get; set; } = true;
     }

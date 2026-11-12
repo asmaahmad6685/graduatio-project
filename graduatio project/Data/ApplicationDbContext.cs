@@ -138,6 +138,10 @@ namespace graduatio_project.Data
                 .HasForeignKey(s => s.CenterId)
                 .OnDelete(DeleteBehavior.Restrict);
 
+            modelBuilder.Entity<Service>()
+                .Property(s => s.ImageUrl)
+                .HasMaxLength(500);
+
             // Center -> Therapists (One-to-Many)
             modelBuilder.Entity<Therapist>()
                 .HasOne(t => t.Center)
