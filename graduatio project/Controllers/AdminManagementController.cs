@@ -171,43 +171,80 @@ namespace graduatio_project.Controllers
             var hiddenReviews = await _db.Reviews.CountAsync(r => !r.IsVisible);
 
             //  آخر الأحداث الحقيقية من الجداول لشريط النشاط
-            var events = new List<(string Kind, int Id, DateTime At)>();
+            //  Subject/detail describe the record the event happened on, so the
+            //  feed can name it instead of showing only the event type.
+            var events = new List<(string Kind, int Id, DateTime At, string? Subject, string? Detail)>();
 
             var submissions = await _db.Centers.AsNoTracking()
                 .OrderByDescending(c => c.CreatedAt)
                 .Take(5)
-                .Select(c => new { Id = c.CenterId, At = c.CreatedAt })
+                .Select(c => new
+                {
+                    Id = c.CenterId,
+                    At = c.CreatedAt,
+                    Subject = c.NameEnglish ?? c.NameArabic,
+                    Detail = c.City
+                })
                 .ToListAsync();
-            events.AddRange(submissions.Select(x => ("centerSubmitted", x.Id, x.At)));
+            events.AddRange(submissions.Select(x =>
+                ("centerSubmitted", x.Id, x.At, (string?)x.Subject, (string?)x.Detail)));
 
             var reviewedCenters = await _db.Centers.AsNoTracking()
                 .Where(c => c.ReviewedAt != null)
                 .OrderByDescending(c => c.ReviewedAt)
                 .Take(5)
-                .Select(c => new { Id = c.CenterId, At = c.ReviewedAt!.Value })
+                .Select(c => new
+                {
+                    Id = c.CenterId,
+                    At = c.ReviewedAt!.Value,
+                    Subject = c.NameEnglish ?? c.NameArabic,
+                    Detail = c.City
+                })
                 .ToListAsync();
-            events.AddRange(reviewedCenters.Select(x => ("centerReviewed", x.Id, x.At)));
+            events.AddRange(reviewedCenters.Select(x =>
+                ("centerReviewed", x.Id, x.At, (string?)x.Subject, (string?)x.Detail)));
 
             var therapistJoins = await _db.Therapists.AsNoTracking()
                 .OrderByDescending(t => t.CreatedAt)
                 .Take(5)
-                .Select(t => new { Id = t.TherapistId, At = t.CreatedAt })
+                .Select(t => new
+                {
+                    Id = t.TherapistId,
+                    At = t.CreatedAt,
+                    Subject = t.FullName,
+                    Detail = t.Center.NameEnglish ?? t.Center.NameArabic
+                })
                 .ToListAsync();
-            events.AddRange(therapistJoins.Select(x => ("therapistJoined", x.Id, x.At)));
+            events.AddRange(therapistJoins.Select(x =>
+                ("therapistJoined", x.Id, x.At, (string?)x.Subject, (string?)x.Detail)));
 
             var reviewPosts = await _db.Reviews.AsNoTracking()
                 .OrderByDescending(r => r.CreatedAt)
                 .Take(5)
-                .Select(r => new { Id = r.ReviewId, At = r.CreatedAt })
+                .Select(r => new
+                {
+                    Id = r.ReviewId,
+                    At = r.CreatedAt,
+                    Subject = r.Patient.FullName,
+                    Detail = r.Center.NameEnglish ?? r.Center.NameArabic
+                })
                 .ToListAsync();
-            events.AddRange(reviewPosts.Select(x => ("reviewPosted", x.Id, x.At)));
+            events.AddRange(reviewPosts.Select(x =>
+                ("reviewPosted", x.Id, x.At, (string?)x.Subject, (string?)x.Detail)));
 
             var patientJoins = await _db.Patients.AsNoTracking()
                 .OrderByDescending(p => p.User.CreatedAt)
                 .Take(5)
-                .Select(p => new { Id = p.PatientId, At = p.User.CreatedAt })
+                .Select(p => new
+                {
+                    Id = p.PatientId,
+                    At = p.User.CreatedAt,
+                    Subject = p.FullName,
+                    Detail = p.City
+                })
                 .ToListAsync();
-            events.AddRange(patientJoins.Select(x => ("patientJoined", x.Id, x.At)));
+            events.AddRange(patientJoins.Select(x =>
+                ("patientJoined", x.Id, x.At, (string?)x.Subject, (string?)x.Detail)));
 
             var activity = events
                 .OrderByDescending(e => e.At)
@@ -218,7 +255,9 @@ namespace graduatio_project.Controllers
                     kind = e.Kind,
                     relatedId = e.Id.ToString(),
                     text = new { en = ActivityText[e.Kind].En, ar = ActivityText[e.Kind].Ar },
-                    at = Iso(e.At)
+                    at = Iso(e.At),
+                    subject = e.Subject,
+                    detail = e.Detail
                 })
                 .ToList();
 
@@ -310,20 +349,55 @@ namespace graduatio_project.Controllers
             //  Each source projects the same shape, so the five of them become
             //  one UNION ALL and paging happens in the database.
             var submissions = _db.Centers.AsNoTracking()
-                .Select(c => new { kind = "centerSubmitted", id = c.CenterId, at = c.CreatedAt });
+                .Select(c => new
+                {
+                    kind = "centerSubmitted",
+                    id = c.CenterId,
+                    at = c.CreatedAt,
+                    subject = c.NameEnglish ?? c.NameArabic,
+                    detail = (string?)c.City
+                });
 
             var reviewedCenters = _db.Centers.AsNoTracking()
                 .Where(c => c.ReviewedAt != null)
-                .Select(c => new { kind = "centerReviewed", id = c.CenterId, at = c.ReviewedAt!.Value });
+                .Select(c => new
+                {
+                    kind = "centerReviewed",
+                    id = c.CenterId,
+                    at = c.ReviewedAt!.Value,
+                    subject = c.NameEnglish ?? c.NameArabic,
+                    detail = (string?)c.City
+                });
 
             var therapistJoins = _db.Therapists.AsNoTracking()
-                .Select(t => new { kind = "therapistJoined", id = t.TherapistId, at = t.CreatedAt });
+                .Select(t => new
+                {
+                    kind = "therapistJoined",
+                    id = t.TherapistId,
+                    at = t.CreatedAt,
+                    subject = t.FullName,
+                    detail = (string?)(t.Center.NameEnglish ?? t.Center.NameArabic)
+                });
 
             var reviewPosts = _db.Reviews.AsNoTracking()
-                .Select(r => new { kind = "reviewPosted", id = r.ReviewId, at = r.CreatedAt });
+                .Select(r => new
+                {
+                    kind = "reviewPosted",
+                    id = r.ReviewId,
+                    at = r.CreatedAt,
+                    subject = r.Patient.FullName,
+                    detail = (string?)(r.Center.NameEnglish ?? r.Center.NameArabic)
+                });
 
             var patientJoins = _db.Patients.AsNoTracking()
-                .Select(p => new { kind = "patientJoined", id = p.PatientId, at = p.User.CreatedAt });
+                .Select(p => new
+                {
+                    kind = "patientJoined",
+                    id = p.PatientId,
+                    at = p.User.CreatedAt,
+                    subject = p.FullName,
+                    detail = (string?)p.City
+                });
 
             var events = submissions
                 .Concat(reviewedCenters)
@@ -344,7 +418,9 @@ namespace graduatio_project.Controllers
                 kind = e.kind,
                 relatedId = e.id.ToString(),
                 text = new { en = ActivityText[e.kind].En, ar = ActivityText[e.kind].Ar },
-                at = Iso(e.at)
+                at = Iso(e.at),
+                subject = e.subject,
+                detail = e.detail
             }).ToList();
 
             return Ok(new { items, total, page, pageSize });
