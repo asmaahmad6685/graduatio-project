@@ -17,6 +17,10 @@ namespace graduatio_project.DTOs.Therapist
         [MaxLength(150)]
         public string? FullNameAr { get; set; }
 
+        //  رقم هاتف المعالج - اختياري (يُحفظ في سجل المستخدم المرتبط)
+        [MaxLength(30)]
+        public string? PhoneNumber { get; set; }
+
         //  نبذة تعريفية عن المعالج - اختيارية
         [MaxLength(1000)]
         public string? Bio { get; set; }

@@ -67,11 +67,17 @@ namespace graduatio_project.Controllers
             }
 
             //  نرجع بيانات الـ Profile للـ Frontend
+            var phoneNumber = await _context.Users.AsNoTracking()
+                .Where(u => u.UserId == userId)
+                .Select(u => u.PhoneNumber)
+                .FirstOrDefaultAsync();
+
             return Ok(new
             {
                 therapistId = therapist.TherapistId,
                 fullName = therapist.FullName,
                 fullNameAr = therapist.FullNameAr,
+                phoneNumber,
                 bio = therapist.Bio,
                 bioAr = therapist.BioAr,
                 profileImageUrl = therapist.ProfileImageUrl,
@@ -80,6 +86,7 @@ namespace graduatio_project.Controllers
                 languages = therapist.Languages,
                 isAvailable = therapist.IsAvailable,
                 isActive = therapist.IsActive,
+                specialtyId = therapist.SpecialtyId,
 
                 specialty = new
                 {
@@ -136,6 +143,10 @@ namespace graduatio_project.Controllers
                 });
             }
 
+            //  الهاتف يعيش في سجل المستخدم، لا في سجل المعالج
+            var user = await _context.Users
+                .FirstOrDefaultAsync(u => u.UserId == userId);
+
             // نتأكد أن الـ Specialty الجديدة موجودة فعلاً
             bool specialtyExists = await _context.Specialties
                 .AnyAsync(s => s.SpecialtyId == dto.SpecialtyId);
@@ -160,13 +171,26 @@ namespace graduatio_project.Controllers
             therapist.Languages = dto.Languages;
             therapist.IsAvailable = dto.IsAvailable;
 
+            if (user != null && dto.PhoneNumber != null)
+            {
+                user.PhoneNumber = string.IsNullOrWhiteSpace(dto.PhoneNumber)
+                    ? string.Empty
+                    : dto.PhoneNumber.Trim();
+            }
+
+            if (user != null)
+            {
+                user.UpdatedAt = DateTime.UtcNow;
+            }
+
             //  نحفظ التعديلات في قاعدة البيانات
             await _context.SaveChangesAsync();
 
             //  نرجع رسالة نجاح للـ Frontend
             return Ok(new
             {
-                message = "Therapist profile updated successfully."
+                message = "Therapist profile updated successfully.",
+                phoneNumber = user?.PhoneNumber
             });
 
         }
