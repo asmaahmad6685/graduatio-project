@@ -18,25 +18,6 @@ namespace graduatio_project.Controllers
             _service = service;
         }
 
-        [HttpGet("definition")]
-        public async Task<IActionResult> GetDefinition(CancellationToken cancellationToken)
-        {
-            var (_, identityError) = await GetPatientIdentityAsync(cancellationToken);
-            if (identityError != null)
-            {
-                return identityError;
-            }
-
-            try
-            {
-                return Ok(await _service.GetDefinitionAsync(cancellationToken));
-            }
-            catch (AssessmentDefinitionConflictException exception)
-            {
-                return Conflict(new { message = exception.Message });
-            }
-        }
-
         [HttpPost]
         public async Task<IActionResult> Submit(AssessmentSubmissionDto submission, CancellationToken cancellationToken)
         {

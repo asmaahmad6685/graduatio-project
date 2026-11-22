@@ -15,9 +15,6 @@ namespace graduatio_project.Controllers
     //    PUT  /api/center/workspace/center
     //    PUT  /api/center/workspace/hours
     //    POST /api/center/workspace/images            DELETE /api/center/workspace/images/{imageId}
-    //    POST /api/center/workspace/services          PUT/DELETE /api/center/workspace/services/{serviceId}
-    //    PUT/DELETE /api/center/workspace/therapists/{therapistId}
-    //    GET/POST /api/center/workspace/patients      GET/POST /api/center/workspace/patients/{patientId}/notes
     //    PUT  /api/center/workspace/appointments/{appointmentId}/status
     //    POST /api/center/workspace/reviews/{reviewId}/reply
     //    GET/PUT /api/center/workspace/preferences
@@ -654,32 +651,6 @@ namespace graduatio_project.Controllers
             });
         }
 
-        //  الإلغاء هنا تعطيل: الخدمات قد تكون مرتبطة بمواعيد موجودة
-        //  فلا نحذف صفًا يحمل تاريخ حجز، ونُخفيه فقط عن الواجهات العامة
-        [HttpDelete("workspace/services/{serviceId:int}")]
-        public async Task<IActionResult> DeactivateService(int serviceId)
-        {
-            var resolved = await ResolveCenterAsync();
-            if (resolved.error != null)
-            {
-                return resolved.error;
-            }
-
-            var service = await _context.Services
-                .FirstOrDefaultAsync(s => s.ServiceId == serviceId
-                    && s.CenterId == resolved.center!.CenterId);
-
-            if (service == null)
-            {
-                return ApiError.NotFound("not_found", "Service not found.");
-            }
-
-            service.IsActive = false;
-            await _context.SaveChangesAsync();
-
-            return NoContent();
-        }
-
         [HttpPut("workspace/therapists/{therapistId:int}")]
         public async Task<IActionResult> UpdateTherapist(int therapistId, UpdateTherapistDto dto)
         {
@@ -818,32 +789,6 @@ namespace graduatio_project.Controllers
                     : "unavailable",
                 isActive = therapist.IsActive
             });
-        }
-
-        [HttpDelete("workspace/therapists/{therapistId:int}")]
-        public async Task<IActionResult> DeactivateTherapist(int therapistId)
-        {
-            var resolved = await ResolveCenterAsync();
-            if (resolved.error != null)
-            {
-                return resolved.error;
-            }
-
-            var therapist = await _context.Therapists
-                .FirstOrDefaultAsync(t => t.TherapistId == therapistId
-                    && t.CenterId == resolved.center!.CenterId);
-
-            if (therapist == null)
-            {
-                return ApiError.NotFound("not_found", "Therapist not found.");
-            }
-
-            //  المعالج قد يكون له مواعيد وحساب دخول: نعطّله بدل حذفه
-            therapist.IsActive = false;
-            therapist.IsAvailable = false;
-            await _context.SaveChangesAsync();
-
-            return NoContent();
         }
 
         //  إضافة مريض من مساحة المركز
@@ -990,82 +935,6 @@ namespace graduatio_project.Controllers
                 status = patient.User.IsActive ? "active" : "inactive",
                 appointmentCount
             });
-        }
-
-        [HttpGet("workspace/patients")]
-        public async Task<IActionResult> GetPatients()
-        {
-            var resolved = await ResolveCenterAsync();
-            if (resolved.error != null)
-            {
-                return resolved.error;
-            }
-
-            var centerId = resolved.center!.CenterId;
-
-            var appointmentPatientIds = await _context.Appointments.AsNoTracking()
-                .Where(a => a.CenterId == centerId)
-                .Select(a => a.PatientId)
-                .Distinct()
-                .ToListAsync();
-
-            var notedPatientIds = await _context.PatientNotes.AsNoTracking()
-                .Where(n => n.CenterId == centerId)
-                .Select(n => n.PatientId)
-                .Distinct()
-                .ToListAsync();
-
-            var addedPatientIds = await _context.CenterPatients.AsNoTracking()
-                .Where(cp => cp.CenterId == centerId)
-                .Select(cp => cp.PatientId)
-                .ToListAsync();
-
-            var patientIds = appointmentPatientIds
-                .Concat(notedPatientIds)
-                .Concat(addedPatientIds)
-                .Distinct()
-                .ToList();
-
-            var patients = await _context.Patients.AsNoTracking()
-                .Include(p => p.User)
-                .Where(p => patientIds.Contains(p.PatientId))
-                .OrderBy(p => p.FullName)
-                .ToListAsync();
-
-            return Ok(patients.Select(p => new
-            {
-                id = p.PatientId.ToString(),
-                name = p.FullName,
-                email = p.User?.Email,
-                phone = p.User?.PhoneNumber,
-                gender = p.Gender,
-                dateOfBirth = p.DateOfBirth?.ToString("yyyy-MM-dd"),
-                imageUrl = p.ProfileImageUrl,
-                status = p.User != null && p.User.IsActive ? "active" : "inactive"
-            }).ToList());
-        }
-
-        [HttpGet("workspace/patients/{patientId:int}/notes")]
-        public async Task<IActionResult> GetPatientNotes(int patientId)
-        {
-            var resolved = await ResolveCenterAsync();
-            if (resolved.error != null)
-            {
-                return resolved.error;
-            }
-
-            var notes = await _context.PatientNotes.AsNoTracking()
-                .Where(n => n.CenterId == resolved.center!.CenterId && n.PatientId == patientId)
-                .OrderByDescending(n => n.CreatedAt)
-                .ToListAsync();
-
-            return Ok(notes.Select(n => new
-            {
-                id = n.PatientNoteId.ToString(),
-                text = n.Text,
-                authorUserId = n.AuthorUserId.ToString(),
-                date = n.CreatedAt.ToString("yyyy-MM-dd'T'HH:mm:ss'Z'")
-            }).ToList());
         }
 
         [HttpPost("workspace/patients/{patientId:int}/notes")]

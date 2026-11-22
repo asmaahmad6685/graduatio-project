@@ -49,24 +49,6 @@ namespace graduatio_project.Controllers
             return Ok(centers.Select(c => mapped[c.CenterId]).ToList());
         }
 
-        //  مركز واحد بالحقول الكاملة؛ 404 إذا لم يكن موجودًا أو معتمدًا
-        [HttpGet("{id:int}")]
-        public async Task<IActionResult> GetCenter(int id)
-        {
-            var center = await _context.Centers
-                .AsNoTracking()
-                .Include(c => c.User)
-                .FirstOrDefaultAsync(c => c.CenterId == id && c.Status == "Approved");
-
-            if (center == null)
-            {
-                return ApiError.NotFound("not_found", "Center not found.");
-            }
-
-            var mapped = await CenterMapper.BuildAsync(_context, new[] { center });
-            return Ok(mapped[center.CenterId]);
-        }
-
         //  المواعيد المتاحة لمركز ومعالج وخدمة في تاريخ معيّن
         //  القواعد نفسها التي يعتمدها الحجز: ساعات المركز، جدول المعالج،
         //  مدة الخدمة، المواعيد المحجوزة، وعدم إرجاع مواعيد في الماضي
