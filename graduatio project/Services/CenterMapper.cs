@@ -12,12 +12,14 @@ namespace graduatio_project.Services
         public static string? Pick(string? english, string? arabic)
             => string.IsNullOrWhiteSpace(english) ? arabic : english;
 
+        // Splits a comma separated column into trimmed values.
         private static List<string> SplitList(string? value)
             => string.IsNullOrWhiteSpace(value)
                 ? new List<string>()
                 : value.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
                        .ToList();
 
+        // Builds the full center payloads, including services, staff, images and hours.
         public static async Task<Dictionary<int, object>> BuildAsync(
             ApplicationDbContext context,
             IReadOnlyList<Center> centers)
@@ -105,10 +107,19 @@ namespace graduatio_project.Services
                 {
                     id = center.CenterId.ToString(),
                     name = Pick(center.NameEnglish, center.NameArabic),
-                    imageUrl = primary?.ImageUrl ?? center.ProfileImageUrl,
+                    //  The centre's own profile photo wins; a gallery photo is
+                    //  only the fallback until they upload one.
+                    imageUrl = string.IsNullOrWhiteSpace(center.ProfileImageUrl)
+                        ? primary?.ImageUrl
+                        : center.ProfileImageUrl,
                     gallery = centerImages.Select(i => i.ImageUrl).ToList(),
                     about = Pick(center.DescriptionEnglish, center.DescriptionArabic),
                     address = center.Address,
+                    addressArabic = center.AddressArabic,
+                    websiteUrl = center.WebsiteUrl,
+                    latitude = center.Latitude,
+                    longitude = center.Longitude,
+                    locationConfirmed = center.LocationConfirmed,
                     city = center.City,
                     hours = new
                     {
@@ -130,7 +141,7 @@ namespace graduatio_project.Services
                         description = Pick(s.DescriptionEnglish, s.DescriptionArabic),
                         price = s.Price,
                         duration = s.DurationMinutes,
-                        imageUrl = (string?)null,
+                        imageUrl = s.ImageUrl,
                         specialty = s.Specialty == null
                             ? null
                             : Pick(s.Specialty.NameEnglish, s.Specialty.NameArabic)
@@ -139,12 +150,14 @@ namespace graduatio_project.Services
                     {
                         id = t.TherapistId.ToString(),
                         name = t.FullName,
+                        nameAr = t.FullNameAr,
                         imageUrl = t.ProfileImageUrl,
                         specialty = t.Specialty == null
                             ? null
                             : Pick(t.Specialty.NameEnglish, t.Specialty.NameArabic),
                         experience = t.YearsOfExperience ?? 0,
                         about = t.Bio,
+                        bioAr = t.BioAr,
                         rating = therapistRatings.TryGetValue(t.TherapistId, out var tr)
                             ? tr
                             : (double?)null,

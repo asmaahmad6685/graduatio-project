@@ -362,3 +362,9 @@ MigrationBackup/
 # Fody - auto-generated XML schema
 FodyWeavers.xsd
 /graduatio project/Controllers/WeatherForecastController.cs
+
+# Agents 
+
+.freebuff
+
+graduatio project/wwwroot/uploads/*

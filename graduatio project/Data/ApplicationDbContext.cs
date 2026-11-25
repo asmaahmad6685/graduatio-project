@@ -5,13 +5,17 @@ namespace graduatio_project.Data
 {
     public class ApplicationDbContext : DbContext
     {
+        // Creates the context with the options registered in Program.cs.
         public ApplicationDbContext(DbContextOptions<ApplicationDbContext> options)
             : base(options)
         {
         }
 
         public DbSet<User> Users { get; set; }
+        public DbSet<ExternalLogin> ExternalLogins { get; set; }
         public DbSet<Patient> Patients { get; set; }
+        public DbSet<PatientSavedCenter> PatientSavedCenters { get; set; }
+        public DbSet<CenterPatient> CenterPatients { get; set; }
         public DbSet<Center> Centers { get; set; }
         public DbSet<Admin> Admins { get; set; }
 
@@ -47,9 +51,34 @@ namespace graduatio_project.Data
 
         public DbSet<PatientNote> PatientNotes { get; set; }
     
+    // Declares the keys, indexes, relationships and delete behaviour of the model.
     protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);
+
+            modelBuilder.Entity<ExternalLogin>()
+                .HasOne(e => e.User)
+                .WithMany()
+                .HasForeignKey(e => e.UserId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            modelBuilder.Entity<ExternalLogin>()
+                .Property(e => e.Provider)
+                .HasMaxLength(32)
+                .IsRequired();
+
+            modelBuilder.Entity<ExternalLogin>()
+                .Property(e => e.ProviderSubject)
+                .HasMaxLength(255)
+                .IsRequired();
+
+            modelBuilder.Entity<ExternalLogin>()
+                .HasIndex(e => new { e.Provider, e.ProviderSubject })
+                .IsUnique();
+
+            modelBuilder.Entity<ExternalLogin>()
+                .HasIndex(e => new { e.UserId, e.Provider })
+                .IsUnique();
 
             modelBuilder.Entity<Patient>()
                 .HasOne(p => p.User)
@@ -63,11 +92,46 @@ namespace graduatio_project.Data
                 .HasForeignKey<Center>(c => c.UserId)
                 .OnDelete(DeleteBehavior.Restrict);
 
+            modelBuilder.Entity<PatientSavedCenter>()
+                .HasKey(sc => new { sc.PatientId, sc.CenterId });
+
+            modelBuilder.Entity<PatientSavedCenter>()
+                .HasOne(sc => sc.Patient)
+                .WithMany()
+                .HasForeignKey(sc => sc.PatientId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            modelBuilder.Entity<PatientSavedCenter>()
+                .HasOne(sc => sc.Center)
+                .WithMany()
+                .HasForeignKey(sc => sc.CenterId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            //  المرضى الذين أضافهم المركز يظهرون في قائمته
+            modelBuilder.Entity<CenterPatient>()
+                .HasKey(cp => new { cp.CenterId, cp.PatientId });
+
+            modelBuilder.Entity<CenterPatient>()
+                .HasOne(cp => cp.Center)
+                .WithMany()
+                .HasForeignKey(cp => cp.CenterId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            modelBuilder.Entity<CenterPatient>()
+                .HasOne(cp => cp.Patient)
+                .WithMany()
+                .HasForeignKey(cp => cp.PatientId)
+                .OnDelete(DeleteBehavior.Cascade);
+
             modelBuilder.Entity<Admin>()
                 .HasOne(a => a.User)
                 .WithOne()
                 .HasForeignKey<Admin>(a => a.UserId)
                 .OnDelete(DeleteBehavior.Restrict);
+
+            modelBuilder.Entity<Admin>()
+                .Property(a => a.ProfileImageUrl)
+                .HasMaxLength(500);
 
             // Center -> Services (One-to-Many)
             modelBuilder.Entity<Service>()
@@ -75,6 +139,10 @@ namespace graduatio_project.Data
                 .WithMany()
                 .HasForeignKey(s => s.CenterId)
                 .OnDelete(DeleteBehavior.Restrict);
+
+            modelBuilder.Entity<Service>()
+                .Property(s => s.ImageUrl)
+                .HasMaxLength(500);
 
             // Center -> Therapists (One-to-Many)
             modelBuilder.Entity<Therapist>()
@@ -293,6 +361,10 @@ namespace graduatio_project.Data
 
             // Assessment -> Answers (One-to-Many)
             modelBuilder.Entity<AssessmentAnswer>()
+                .Property(a => a.OtherDescription)
+                .HasMaxLength(500);
+
+            modelBuilder.Entity<AssessmentAnswer>()
                 .HasOne(a => a.Assessment)
                 .WithMany()
                 .HasForeignKey(a => a.AssessmentId)
@@ -426,6 +498,10 @@ namespace graduatio_project.Data
                 .IsRequired();
 
             modelBuilder.Entity<Center>()
+                .Property(c => c.AddressArabic)
+                .HasMaxLength(300);
+
+            modelBuilder.Entity<Center>()
                 .Property(c => c.ProfileImageUrl)
                 .HasMaxLength(500);
 
@@ -491,7 +567,15 @@ namespace graduatio_project.Data
                 .IsRequired();
 
             modelBuilder.Entity<Therapist>()
+                .Property(t => t.FullNameAr)
+                .HasMaxLength(150);
+
+            modelBuilder.Entity<Therapist>()
                 .Property(t => t.Bio)
+                .HasMaxLength(1000);
+
+            modelBuilder.Entity<Therapist>()
+                .Property(t => t.BioAr)
                 .HasMaxLength(1000);
 
             modelBuilder.Entity<Therapist>()

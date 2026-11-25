@@ -8,6 +8,7 @@ namespace graduatio_project.Data
     //  لا يعمل إلا إذا كان جدول Users فارغًا حتى لا نمسح بيانات حقيقية
     public static class DbSeeder
     {
+        // Fills an empty database with the demo centers, staff and appointments.
         public static async Task SeedAsync(ApplicationDbContext context, PasswordService passwordService)
         {
             //  نستخدم حساب الأدمن كعلامة على أن البيانات التجريبية موجودة أصلًا
@@ -65,7 +66,7 @@ namespace graduatio_project.Data
                     UserId = patientUser.UserId,
                     FullName = "Sara Nablus",
                     Gender = "female",
-                    DateOfBirth = new DateTime(1996, 4, 12),
+                    DateOfBirth = new DateOnly(1996, 4, 12),
                     ProfileImageUrl = "https://i.pravatar.cc/160?img=47"
                 };
                 context.Patients.Add(patient);
@@ -289,6 +290,7 @@ namespace graduatio_project.Data
             return user;
         }
 
+        // Creates a demo center together with its login account.
         private static async Task<Center> CreateCenterAsync(
             ApplicationDbContext context, PasswordService passwordService,
             string nameArabic, string nameEnglish, string city, string address,
@@ -342,6 +344,7 @@ namespace graduatio_project.Data
             return center;
         }
 
+        // Adds the Saturday to Thursday working hours of a demo center.
         private static async Task AddWorkingHoursAsync(ApplicationDbContext context, int centerId)
         {
             //  السبت (6) حتى الخميس (4) ساعات العمل نفسها
@@ -380,6 +383,7 @@ namespace graduatio_project.Data
             await context.SaveChangesAsync();
         }
 
+        // Adds one demo service to a center and returns it.
         private static Service AddService(ApplicationDbContext context, Center center, Specialty specialty,
             string nameEnglish, string nameArabic, decimal price, int duration)
         {
@@ -399,6 +403,7 @@ namespace graduatio_project.Data
             return service;
         }
 
+        // Creates a demo therapist together with the login account.
         private static async Task<Therapist> CreateTherapistAsync(
             ApplicationDbContext context, PasswordService passwordService,
             Center center, Specialty specialty, string fullName, string email, string phone,
@@ -444,6 +449,7 @@ namespace graduatio_project.Data
             return therapist;
         }
 
+        // Adds a Saturday to Thursday schedule to a demo therapist.
         private static async Task AddScheduleAsync(ApplicationDbContext context, int therapistId)
         {
             //  السبت (6) حتى الخميس (4): 09:00 - 16:00
@@ -471,6 +477,7 @@ namespace graduatio_project.Data
             await context.SaveChangesAsync();
         }
 
+        // Adds one demo appointment at a fixed date and time.
         private static async Task<Appointment> AddAppointmentAsync(
             ApplicationDbContext context, int patientId, Center center, Therapist therapist,
             Service service, DateTime date, string time, string status)

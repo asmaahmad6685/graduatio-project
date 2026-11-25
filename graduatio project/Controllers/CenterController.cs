@@ -10,11 +10,11 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.EntityFrameworkCore;
 using System.Security.Claims;
 
+// Asma Work
 namespace graduatio_project.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
-
     [Authorize(Roles = "Center")]
     public class CenterController : ControllerBase
     {
@@ -24,13 +24,18 @@ namespace graduatio_project.Controllers
         //  نستخدم PasswordService لعمل Hash لباسورد المعالج
         private readonly PasswordService _passwordService;
 
+        //  إشعارات داخل التطبيق (جنس الأدمن عند إنشاء معالج جديد)
+        private readonly NotificationService _notifications;
+
         //  Constructor يستقبل الخدمات التي يحتاجها الـ Controller
         public CenterController(
             ApplicationDbContext context,
-            PasswordService passwordService)
+            PasswordService passwordService,
+            NotificationService notifications)
         {
             _context = context;
             _passwordService = passwordService;
+            _notifications = notifications;
         }
         //  هذا الـ API يسمح للمركز بإضافة Therapist جديد
         // ويعمل له User Account حتى يقدر يعمل Login بنفس الإيميل والباسورد
@@ -65,6 +70,15 @@ namespace graduatio_project.Controllers
                 });
             }
 
+            if (center.Status != "Approved" || !await _context.Users
+                .AnyAsync(u => u.UserId == center.UserId && u.IsActive))
+            {
+                return StatusCode(403, new
+                {
+                    message = "Your center must be approved and active to create therapist accounts."
+                });
+            }
+
             //  نتأكد أن الإيميل غير مستخدم مسبقاً
             bool emailExists = await _context.Users
                 .AnyAsync(u => u.Email == dto.Email);
@@ -89,29 +103,51 @@ namespace graduatio_project.Controllers
                 });
             }
 
+            //  نتأكد أن جميع الخدمات المطلوبة تعود لهذا المركز قبل إنشاء الحساب
+            List<int>? linkedServiceIds = null;
+            if (dto.ServiceIds is { Count: > 0 })
+            {
+                var requested = dto.ServiceIds.Distinct().ToList();
+                linkedServiceIds = await _context.Services.AsNoTracking()
+                    .Where(service => service.CenterId == center.CenterId && requested.Contains(service.ServiceId))
+                    .Select(service => service.ServiceId)
+                    .ToListAsync();
+
+                if (linkedServiceIds.Count != requested.Count)
+                {
+                    return BadRequest(new
+                    {
+                        message = "One or more services do not belong to this center.",
+                        errors = new Dictionary<string, string[]>
+                        {
+                            ["ServiceIds"] = new[] { "One or more services do not belong to this center." }
+                        }
+                    });
+                }
+            }
+
             //  ننشئ User Account للـ Therapist
             var therapistUser = new User
             {
                 Email = dto.Email,
                 PasswordHash = _passwordService.HashPassword(dto.Password),
-                PhoneNumber = string.Empty,
+                PhoneNumber = dto.PhoneNumber?.Trim() ?? string.Empty,
                 Role = "Therapist",
                 IsActive = true
             };
 
             _context.Users.Add(therapistUser);
 
-            //  نحفظ الـ User أولاً حتى نحصل على UserId
-            await _context.SaveChangesAsync();
-
             //  ننشئ Therapist Profile ونربطه بحساب الـ User وبالمركز الحالي
             var therapist = new Therapist
             {
-                UserId = therapistUser.UserId,
+                User = therapistUser,
                 CenterId = center.CenterId,
                 SpecialtyId = dto.SpecialtyId,
                 FullName = dto.FullName,
+                FullNameAr = dto.FullNameAr?.Trim(),
                 Bio = dto.Bio,
+                BioAr = dto.BioAr?.Trim(),
                 ProfileImageUrl = dto.ProfileImageUrl,
                 YearsOfExperience = dto.YearsOfExperience,
                 Qualifications = dto.Qualifications,
@@ -122,8 +158,28 @@ namespace graduatio_project.Controllers
 
             _context.Therapists.Add(therapist);
 
-            //  نحفظ بيانات الـ Therapist في قاعدة البيانات
+            //  نربط المعالج بالخدمات التي يقدمها من خدمات نفس المركز
+            if (linkedServiceIds != null)
+            {
+                foreach (var serviceId in linkedServiceIds)
+                {
+                    _context.TherapistServices.Add(new TherapistService
+                    {
+                        Therapist = therapist,
+                        ServiceId = serviceId
+                    });
+                }
+            }
+
+            // Save the User and Therapist together in EF Core's automatic transaction.
             await _context.SaveChangesAsync();
+
+            //  الجرس للأدمن: حساب معالج جديد أنشأه مركز معتمد
+            await _notifications.NotifyAdminsAsync(
+                "therapistVerified",
+                "Physiotherapist verified",
+                $"A new physiotherapist account was created at {center.NameArabic}.",
+                therapist.TherapistId);
 
             //  نرجع Response للـ Frontend بعد نجاح الإضافة
             return Ok(new
@@ -132,6 +188,7 @@ namespace graduatio_project.Controllers
                 therapistId = therapist.TherapistId,
                 userId = therapistUser.UserId,
                 email = therapistUser.Email,
+                phone = therapistUser.PhoneNumber,
                 role = therapistUser.Role
             });
 

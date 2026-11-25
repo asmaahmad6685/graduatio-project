@@ -16,7 +16,13 @@
 
             public string FullName { get; set; } = string.Empty;
 
+            //  الاسم الكامل بالعربية - اختياري (يُعرض عندما تكون الواجهة بالعربية)
+            public string? FullNameAr { get; set; }
+
             public string? Bio { get; set; }
+
+            //  النبذة التعريفية بالعربية - اختيارية
+            public string? BioAr { get; set; }
 
             public string? ProfileImageUrl { get; set; }
 

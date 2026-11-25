@@ -1,4 +1,4 @@
-using System.Globalization;
+﻿using System.Globalization;
 using graduatio_project.Data;
 using graduatio_project.DTOs.Center;
 using graduatio_project.Models;
@@ -15,9 +15,6 @@ namespace graduatio_project.Controllers
     //    PUT  /api/center/workspace/center
     //    PUT  /api/center/workspace/hours
     //    POST /api/center/workspace/images            DELETE /api/center/workspace/images/{imageId}
-    //    POST /api/center/workspace/services          PUT/DELETE /api/center/workspace/services/{serviceId}
-    //    PUT/DELETE /api/center/workspace/therapists/{therapistId}
-    //    GET  /api/center/workspace/patients          GET/POST /api/center/workspace/patients/{patientId}/notes
     //    PUT  /api/center/workspace/appointments/{appointmentId}/status
     //    POST /api/center/workspace/reviews/{reviewId}/reply
     //    GET/PUT /api/center/workspace/preferences
@@ -28,14 +25,23 @@ namespace graduatio_project.Controllers
     {
         private readonly ApplicationDbContext _context;
         private readonly IWebHostEnvironment _environment;
+        private readonly PasswordService _passwordService;
+        private readonly NotificationService _notifications;
 
+        // Wires the database, file storage and services the center workspace calls.
         public CenterWorkspaceController(
-            ApplicationDbContext context, IWebHostEnvironment environment)
+            ApplicationDbContext context,
+            IWebHostEnvironment environment,
+            PasswordService passwordService,
+            NotificationService notifications)
         {
             _context = context;
             _environment = environment;
+            _passwordService = passwordService;
+            _notifications = notifications;
         }
 
+        // GET api/center/workspace: profile, staff, patients, services and appointments of the center.
         [HttpGet("workspace")]
         public async Task<IActionResult> GetWorkspace()
         {
@@ -53,6 +59,7 @@ namespace graduatio_project.Controllers
 
             var therapists = await _context.Therapists.AsNoTracking()
                 .Include(t => t.Specialty)
+                .Include(t => t.User)
                 .Where(t => t.CenterId == center.CenterId)
                 .ToListAsync();
 
@@ -66,12 +73,17 @@ namespace graduatio_project.Controllers
                 .Where(a => a.CenterId == center.CenterId)
                 .ToListAsync();
 
+            //  المرضى يظهرون عبر موعد أو ملاحظة أو لأن هذا المركز أضافهم مباشرة
             var patientIds = appointmentRows.Select(a => a.PatientId)
                 .Distinct()
                 .Concat(await _context.PatientNotes.AsNoTracking()
                     .Where(n => n.CenterId == center.CenterId)
                     .Select(n => n.PatientId)
                     .Distinct()
+                    .ToListAsync())
+                .Concat(await _context.CenterPatients.AsNoTracking()
+                    .Where(cp => cp.CenterId == center.CenterId)
+                    .Select(cp => cp.PatientId)
                     .ToListAsync())
                 .Distinct()
                 .ToList();
@@ -84,6 +96,19 @@ namespace graduatio_project.Controllers
             var appointmentCounts = appointmentRows
                 .GroupBy(a => a.PatientId)
                 .ToDictionary(g => g.Key, g => g.Count());
+
+            //  قائمة التخصصات النشطة: نماذج الإضافة تحتاجها لاختيار تخصص الخدمة
+            //  أو المعالج بدل تخمينه من سجل موجود
+            var specialties = await _context.Specialties.AsNoTracking()
+                .Where(s => s.IsActive)
+                .OrderBy(s => s.SpecialtyId)
+                .Select(s => new
+                {
+                    id = s.SpecialtyId.ToString(),
+                    nameEnglish = s.NameEnglish,
+                    nameArabic = s.NameArabic
+                })
+                .ToListAsync();
 
             var therapistIds = therapists.Select(t => t.TherapistId).ToList();
             var therapistNameById = therapists.ToDictionary(t => t.TherapistId, t => t.FullName);
@@ -155,9 +180,12 @@ namespace graduatio_project.Controllers
                 {
                     id = t.TherapistId.ToString(),
                     name = t.FullName,
+                    nameAr = t.FullNameAr,
                     imageUrl = t.ProfileImageUrl,
                     bio = t.Bio,
+                    bioAr = t.BioAr,
                     email = t.User?.Email,
+                    phone = t.User?.PhoneNumber,
                     specialtyId = t.SpecialtyId,
                     specialty = t.Specialty == null
                         ? null
@@ -182,6 +210,7 @@ namespace graduatio_project.Controllers
                     descriptionArabic = s.DescriptionArabic,
                     price = s.Price,
                     duration = s.DurationMinutes,
+                    imageUrl = s.ImageUrl,
                     specialtyId = s.SpecialtyId,
                     specialty = s.Specialty == null
                         ? null
@@ -197,10 +226,12 @@ namespace graduatio_project.Controllers
                     gender = p.Gender,
                     dateOfBirth = p.DateOfBirth?.ToString("yyyy-MM-dd"),
                     imageUrl = p.ProfileImageUrl,
+                    status = p.User != null && p.User.IsActive ? "active" : "inactive",
                     appointmentCount = appointmentCounts.TryGetValue(p.PatientId, out var count)
                         ? count
                         : 0
                 }).ToList(),
+                specialties,
                 appointments = AppointmentMapper.Build(
                     loaded.appointments, loaded.centers, loaded.therapists, loaded.services),
                 reviews = reviews.Select(r => new
@@ -252,6 +283,7 @@ namespace graduatio_project.Controllers
             });
         }
 
+        // PUT api/center/workspace/center: saves the editable center profile.
         [HttpPut("workspace/center")]
         public async Task<IActionResult> UpdateCenter(UpdateCenterInfoDto dto)
         {
@@ -269,11 +301,47 @@ namespace graduatio_project.Controllers
             if (dto.DescriptionArabic != null) center.DescriptionArabic = dto.DescriptionArabic.Trim();
             if (dto.City != null) center.City = dto.City.Trim();
             if (dto.Address != null) center.Address = dto.Address.Trim();
+            if (dto.AddressArabic != null)
+                center.AddressArabic = string.IsNullOrWhiteSpace(dto.AddressArabic)
+                    ? null
+                    : dto.AddressArabic.Trim();
             if (dto.ProfileImageUrl != null) center.ProfileImageUrl = dto.ProfileImageUrl.Trim();
-            if (dto.WebsiteUrl != null) center.WebsiteUrl = dto.WebsiteUrl.Trim();
+            if (dto.WebsiteUrl != null)
+                center.WebsiteUrl = string.IsNullOrWhiteSpace(dto.WebsiteUrl)
+                    ? null
+                    : dto.WebsiteUrl.Trim();
             if (dto.Latitude.HasValue) center.Latitude = dto.Latitude;
             if (dto.Longitude.HasValue) center.Longitude = dto.Longitude;
             if (dto.LocationConfirmed.HasValue) center.LocationConfirmed = dto.LocationConfirmed.Value;
+
+            //  البريد والهاتف يعيشان على حساب المستخدم، وليس على صف المركز.
+            //  البريد هو اسم الدخول، فلا يصلح أن يكون بريد حساب آخر
+            var account = await _context.Users
+                .FirstOrDefaultAsync(u => u.UserId == center.UserId);
+
+            if (account != null && !string.IsNullOrWhiteSpace(dto.Email))
+            {
+                var email = dto.Email.Trim();
+                var taken = await _context.Users.AnyAsync(u =>
+                    u.UserId != center.UserId && u.Email.ToLower() == email.ToLower());
+
+                if (taken)
+                {
+                    return ApiError.Validation(new Dictionary<string, string[]>
+                    {
+                        ["email"] = new[] { "This email is already used by another account." }
+                    }, "This email is already used by another account.");
+                }
+
+                account.Email = email;
+                account.UpdatedAt = DateTime.UtcNow;
+            }
+
+            if (account != null && !string.IsNullOrWhiteSpace(dto.PhoneNumber))
+            {
+                account.PhoneNumber = dto.PhoneNumber.Trim();
+                account.UpdatedAt = DateTime.UtcNow;
+            }
 
             center.UpdatedAt = DateTime.UtcNow;
             await _context.SaveChangesAsync();
@@ -292,6 +360,7 @@ namespace graduatio_project.Controllers
             });
         }
 
+        // PUT api/center/workspace/hours: replaces the weekly working hours of the center.
         [HttpPut("workspace/hours")]
         public async Task<IActionResult> UpdateHours(UpdateWorkingHoursDto dto)
         {
@@ -327,9 +396,22 @@ namespace graduatio_project.Controllers
                 .Where(w => w.CenterId == centerId)
                 .ToListAsync();
 
-            foreach (var hour in existing)
+            //  المراكز المسجلة قد ليس لها صفوف ساعات عمل بعد،
+            // لذلك ننشئ الأيام المفقودة بدل تحديث قائمة فارغة
+            for (var day = DayOfWeek.Sunday; day <= DayOfWeek.Saturday; day++)
             {
-                if (hour.DayOfWeek == DayOfWeek.Friday)
+                var hour = existing.FirstOrDefault(value => value.DayOfWeek == day);
+                if (hour == null)
+                {
+                    hour = new CenterWorkingHour
+                    {
+                        CenterId = centerId,
+                        DayOfWeek = day
+                    };
+                    _context.CenterWorkingHours.Add(hour);
+                }
+
+                if (day == DayOfWeek.Friday)
                 {
                     hour.OpeningTime = fridayStart;
                     hour.ClosingTime = fridayEnd;
@@ -354,6 +436,7 @@ namespace graduatio_project.Controllers
             });
         }
 
+        // POST api/center/workspace/images: adds a logo or gallery image to the center.
         [HttpPost("workspace/images")]
         [RequestSizeLimit(ImageStorage.MaxBytes + 1024 * 1024)]
         public async Task<IActionResult> AddImage([FromForm] AddCenterImageDto dto, IFormFile? file)
@@ -424,6 +507,7 @@ namespace graduatio_project.Controllers
             });
         }
 
+        // DELETE api/center/workspace/images/{imageId}: deletes one center image.
         [HttpDelete("workspace/images/{imageId:int}")]
         public async Task<IActionResult> DeleteImage(int imageId)
         {
@@ -448,6 +532,37 @@ namespace graduatio_project.Controllers
             return NoContent();
         }
 
+        //  حذف صورة من المعرض بالرابط: واجهة المركز تعرف الروابط فقط
+        [HttpDelete("workspace/images")]
+        public async Task<IActionResult> DeleteImageByUrl([FromQuery] string? url)
+        {
+            var resolved = await ResolveCenterAsync();
+            if (resolved.error != null)
+            {
+                return resolved.error;
+            }
+
+            if (string.IsNullOrWhiteSpace(url))
+            {
+                return ApiError.BadRequest("invalid_request", "The image URL is required.");
+            }
+
+            var images = await _context.CenterImages
+                .Where(i => i.CenterId == resolved.center!.CenterId && i.ImageUrl == url.Trim())
+                .ToListAsync();
+
+            if (images.Count == 0)
+            {
+                return ApiError.NotFound("not_found", "Image not found.");
+            }
+
+            _context.CenterImages.RemoveRange(images);
+            await _context.SaveChangesAsync();
+
+            return Ok(new { removed = images.Count });
+        }
+
+        // POST api/center/workspace/services: creates a service offered by the center.
         [HttpPost("workspace/services")]
         public async Task<IActionResult> AddService(SaveServiceDto dto)
         {
@@ -473,6 +588,7 @@ namespace graduatio_project.Controllers
                 DescriptionArabic = dto.DescriptionArabic,
                 Price = dto.Price,
                 DurationMinutes = dto.DurationMinutes,
+                ImageUrl = string.IsNullOrWhiteSpace(dto.ImageUrl) ? null : dto.ImageUrl.Trim(),
                 IsActive = dto.IsActive,
                 CreatedAt = DateTime.UtcNow
             };
@@ -490,6 +606,7 @@ namespace graduatio_project.Controllers
             });
         }
 
+        // PUT api/center/workspace/services/{serviceId}: updates one service, its image and its price.
         [HttpPut("workspace/services/{serviceId:int}")]
         public async Task<IActionResult> UpdateService(int serviceId, SaveServiceDto dto)
         {
@@ -521,6 +638,13 @@ namespace graduatio_project.Controllers
             service.DescriptionArabic = dto.DescriptionArabic;
             service.Price = dto.Price;
             service.DurationMinutes = dto.DurationMinutes;
+            //  null يعني "بدون تغيير"، والنص الفارغ يمحو صورة الخدمة
+            if (dto.ImageUrl != null)
+            {
+                service.ImageUrl = string.IsNullOrWhiteSpace(dto.ImageUrl)
+                    ? null
+                    : dto.ImageUrl.Trim();
+            }
             service.IsActive = dto.IsActive;
 
             await _context.SaveChangesAsync();
@@ -535,32 +659,7 @@ namespace graduatio_project.Controllers
             });
         }
 
-        //  الإلغاء هنا تعطيل: الخدمات قد تكون مرتبطة بمواعيد موجودة
-        //  فلا نحذف صفًا يحمل تاريخ حجز، ونُخفيه فقط عن الواجهات العامة
-        [HttpDelete("workspace/services/{serviceId:int}")]
-        public async Task<IActionResult> DeactivateService(int serviceId)
-        {
-            var resolved = await ResolveCenterAsync();
-            if (resolved.error != null)
-            {
-                return resolved.error;
-            }
-
-            var service = await _context.Services
-                .FirstOrDefaultAsync(s => s.ServiceId == serviceId
-                    && s.CenterId == resolved.center!.CenterId);
-
-            if (service == null)
-            {
-                return ApiError.NotFound("not_found", "Service not found.");
-            }
-
-            service.IsActive = false;
-            await _context.SaveChangesAsync();
-
-            return NoContent();
-        }
-
+        // PUT api/center/workspace/therapists/{therapistId}: updates one therapist's professional fields.
         [HttpPut("workspace/therapists/{therapistId:int}")]
         public async Task<IActionResult> UpdateTherapist(int therapistId, UpdateTherapistDto dto)
         {
@@ -585,13 +684,29 @@ namespace graduatio_project.Controllers
                 return specialtyError;
             }
 
+            //  ما كان محفوظًا قبل التعديل حتى نُعلم المعالج بما تغيّر فعلاً
+            var previousFullName = therapist.FullName;
+            var previousSpecialtyId = therapist.SpecialtyId;
+            var previousBio = therapist.Bio;
+            var previousQualifications = therapist.Qualifications;
+            var previousLanguages = therapist.Languages;
+            var previousExperience = therapist.YearsOfExperience;
+            var previousServiceIds = await _context.TherapistServices.AsNoTracking()
+                .Where(x => x.TherapistId == therapistId)
+                .Select(x => x.ServiceId)
+                .ToListAsync();
+            List<int>? assignedServiceIds = null;
+
             therapist.FullName = dto.FullName.Trim();
             therapist.SpecialtyId = dto.SpecialtyId;
-            therapist.Bio = dto.Bio;
+            //  النموذج لا يحرر هذه الحقول، فالقيمة null تعني "أبقِ ما هو محفوظ"
+            if (dto.Bio != null) therapist.Bio = dto.Bio;
+            if (dto.FullNameAr != null) therapist.FullNameAr = dto.FullNameAr.Trim();
+            if (dto.BioAr != null) therapist.BioAr = dto.BioAr.Trim();
+            if (dto.Qualifications != null) therapist.Qualifications = dto.Qualifications;
+            if (dto.Languages != null) therapist.Languages = dto.Languages;
             therapist.ProfileImageUrl = dto.ProfileImageUrl;
             therapist.YearsOfExperience = dto.YearsOfExperience;
-            therapist.Qualifications = dto.Qualifications;
-            therapist.Languages = dto.Languages;
             therapist.IsAvailable = dto.IsAvailable;
             therapist.IsActive = dto.IsActive;
 
@@ -612,6 +727,8 @@ namespace graduatio_project.Controllers
                         ["ServiceIds"] = new[] { "One or more services do not belong to this center." }
                     }, "One or more services do not belong to this center.");
                 }
+
+                assignedServiceIds = ownedByCenter;
 
                 var existing = await _context.TherapistServices
                     .Where(x => x.TherapistId == therapistId)
@@ -635,12 +752,43 @@ namespace graduatio_project.Controllers
 
             await _context.SaveChangesAsync();
 
+            //  الجرس للمعالج: الخدمات المتغيّرة والمعلومات المهنية المتغيّرة فقط
+            if (assignedServiceIds != null
+                && !previousServiceIds.OrderBy(id => id).SequenceEqual(assignedServiceIds.OrderBy(id => id)))
+            {
+                await _notifications.NotifyAsync(
+                    therapist.UserId,
+                    "services",
+                    "Assigned services updated",
+                    "Your center updated your assigned services.",
+                    therapistId);
+            }
+
+            var professionalChanged = previousFullName != therapist.FullName
+                || previousSpecialtyId != therapist.SpecialtyId
+                || (dto.Bio != null && previousBio != therapist.Bio)
+                || (dto.Qualifications != null && previousQualifications != therapist.Qualifications)
+                || (dto.Languages != null && previousLanguages != therapist.Languages)
+                || previousExperience != therapist.YearsOfExperience;
+
+            if (professionalChanged)
+            {
+                await _notifications.NotifyAsync(
+                    therapist.UserId,
+                    "professional",
+                    "Professional information updated",
+                    "Your center updated your professional information.",
+                    therapistId);
+            }
+
             return Ok(new
             {
                 id = therapist.TherapistId.ToString(),
                 name = therapist.FullName,
+                nameAr = therapist.FullNameAr,
                 specialtyId = therapist.SpecialtyId,
                 bio = therapist.Bio,
+                bioAr = therapist.BioAr,
                 imageUrl = therapist.ProfileImageUrl,
                 experience = therapist.YearsOfExperience ?? 0,
                 credentials = therapist.Qualifications,
@@ -652,8 +800,11 @@ namespace graduatio_project.Controllers
             });
         }
 
-        [HttpDelete("workspace/therapists/{therapistId:int}")]
-        public async Task<IActionResult> DeactivateTherapist(int therapistId)
+        //  إضافة مريض من مساحة المركز
+        //  المريض يحتاج حساب دخول، لذلك ننشئ User و Patient ونربطهما بالمركز
+        //  حتى يظهر المريض في قائمة هذا المركز مباشرة بعد الإضافة
+        [HttpPost("workspace/patients")]
+        public async Task<IActionResult> AddPatient(CreateCenterPatientDto dto)
         {
             var resolved = await ResolveCenterAsync();
             if (resolved.error != null)
@@ -661,25 +812,74 @@ namespace graduatio_project.Controllers
                 return resolved.error;
             }
 
-            var therapist = await _context.Therapists
-                .FirstOrDefaultAsync(t => t.TherapistId == therapistId
-                    && t.CenterId == resolved.center!.CenterId);
+            var email = dto.Email.Trim();
 
-            if (therapist == null)
+            if (await _context.Users.AnyAsync(u => u.Email == email))
             {
-                return ApiError.NotFound("not_found", "Therapist not found.");
+                return ApiError.Conflict("duplicate_email", "Email is already registered.",
+                    new Dictionary<string, string[]>
+                    {
+                        ["Email"] = new[] { "An account with this email already exists." }
+                    });
             }
 
-            //  المعالج قد يكون له مواعيد وحساب دخول: نعطّله بدل حذفه
-            therapist.IsActive = false;
-            therapist.IsAvailable = false;
+            var gender = NormalizeGender(dto.Gender);
+            var centerId = resolved.center!.CenterId;
+
+            await using var transaction = await _context.Database.BeginTransactionAsync();
+
+            var user = new User
+            {
+                Email = email,
+                PhoneNumber = dto.PhoneNumber.Trim(),
+                PasswordHash = _passwordService.HashPassword(dto.Password),
+                Role = "Patient",
+                IsActive = dto.IsActive,
+                CreatedAt = DateTime.UtcNow
+            };
+            _context.Users.Add(user);
             await _context.SaveChangesAsync();
 
-            return NoContent();
+            var patient = new Patient
+            {
+                UserId = user.UserId,
+                FullName = dto.FullName.Trim(),
+                Gender = gender,
+                DateOfBirth = dto.DateOfBirth,
+                ProfileImageUrl = string.IsNullOrWhiteSpace(dto.ProfileImageUrl)
+                    ? null
+                    : dto.ProfileImageUrl.Trim(),
+                City = string.IsNullOrWhiteSpace(dto.City) ? null : dto.City.Trim()
+            };
+            _context.Patients.Add(patient);
+            await _context.SaveChangesAsync();
+
+            _context.CenterPatients.Add(new CenterPatient
+            {
+                CenterId = centerId,
+                PatientId = patient.PatientId
+            });
+            await _context.SaveChangesAsync();
+
+            await transaction.CommitAsync();
+
+            return StatusCode(StatusCodes.Status201Created, new
+            {
+                id = patient.PatientId.ToString(),
+                name = patient.FullName,
+                email = user.Email,
+                phone = user.PhoneNumber,
+                gender = patient.Gender,
+                dateOfBirth = patient.DateOfBirth?.ToString("yyyy-MM-dd"),
+                imageUrl = patient.ProfileImageUrl,
+                status = user.IsActive ? "active" : "inactive",
+                appointmentCount = 0
+            });
         }
 
-        [HttpGet("workspace/patients")]
-        public async Task<IActionResult> GetPatients()
+        //  تعديل مريض من مساحة المركز: تحديث الملف ورقم الهاتف والإيميل والحالة
+        [HttpPut("workspace/patients/{patientId:int}")]
+        public async Task<IActionResult> UpdatePatient(int patientId, UpdateCenterPatientDto dto)
         {
             var resolved = await ResolveCenterAsync();
             if (resolved.error != null)
@@ -689,64 +889,64 @@ namespace graduatio_project.Controllers
 
             var centerId = resolved.center!.CenterId;
 
-            var appointmentPatientIds = await _context.Appointments.AsNoTracking()
-                .Where(a => a.CenterId == centerId)
-                .Select(a => a.PatientId)
-                .Distinct()
-                .ToListAsync();
-
-            var notedPatientIds = await _context.PatientNotes.AsNoTracking()
-                .Where(n => n.CenterId == centerId)
-                .Select(n => n.PatientId)
-                .Distinct()
-                .ToListAsync();
-
-            var patientIds = appointmentPatientIds
-                .Concat(notedPatientIds)
-                .Distinct()
-                .ToList();
-
-            var patients = await _context.Patients.AsNoTracking()
-                .Include(p => p.User)
-                .Where(p => patientIds.Contains(p.PatientId))
-                .OrderBy(p => p.FullName)
-                .ToListAsync();
-
-            return Ok(patients.Select(p => new
+            //  المركز يعدل فقط مريضًا يظهر في قائمته
+            if (!await CenterHasPatientAsync(centerId, patientId))
             {
-                id = p.PatientId.ToString(),
-                name = p.FullName,
-                email = p.User?.Email,
-                phone = p.User?.PhoneNumber,
-                gender = p.Gender,
-                dateOfBirth = p.DateOfBirth?.ToString("yyyy-MM-dd"),
-                imageUrl = p.ProfileImageUrl
-            }).ToList());
-        }
-
-        [HttpGet("workspace/patients/{patientId:int}/notes")]
-        public async Task<IActionResult> GetPatientNotes(int patientId)
-        {
-            var resolved = await ResolveCenterAsync();
-            if (resolved.error != null)
-            {
-                return resolved.error;
+                return ApiError.NotFound("not_found", "Patient not found.");
             }
 
-            var notes = await _context.PatientNotes.AsNoTracking()
-                .Where(n => n.CenterId == resolved.center!.CenterId && n.PatientId == patientId)
-                .OrderByDescending(n => n.CreatedAt)
-                .ToListAsync();
+            var patient = await _context.Patients
+                .Include(p => p.User)
+                .FirstOrDefaultAsync(p => p.PatientId == patientId);
 
-            return Ok(notes.Select(n => new
+            if (patient?.User == null)
             {
-                id = n.PatientNoteId.ToString(),
-                text = n.Text,
-                authorUserId = n.AuthorUserId.ToString(),
-                date = n.CreatedAt.ToString("yyyy-MM-dd'T'HH:mm:ss'Z'")
-            }).ToList());
+                return ApiError.NotFound("not_found", "Patient not found.");
+            }
+
+            var email = dto.Email.Trim();
+
+            if (await _context.Users.AnyAsync(u => u.Email == email && u.UserId != patient.UserId))
+            {
+                return ApiError.Conflict("duplicate_email", "Email is already registered.",
+                    new Dictionary<string, string[]>
+                    {
+                        ["Email"] = new[] { "An account with this email already exists." }
+                    });
+            }
+
+            patient.FullName = dto.FullName.Trim();
+            patient.Gender = NormalizeGender(dto.Gender);
+            patient.DateOfBirth = dto.DateOfBirth;
+            patient.ProfileImageUrl = string.IsNullOrWhiteSpace(dto.ProfileImageUrl)
+                ? null
+                : dto.ProfileImageUrl.Trim();
+            patient.City = string.IsNullOrWhiteSpace(dto.City) ? null : dto.City.Trim();
+            patient.User.Email = email;
+            patient.User.PhoneNumber = dto.PhoneNumber.Trim();
+            patient.User.IsActive = dto.IsActive;
+            patient.User.UpdatedAt = DateTime.UtcNow;
+
+            await _context.SaveChangesAsync();
+
+            var appointmentCount = await _context.Appointments.AsNoTracking()
+                .CountAsync(a => a.CenterId == centerId && a.PatientId == patientId);
+
+            return Ok(new
+            {
+                id = patient.PatientId.ToString(),
+                name = patient.FullName,
+                email = patient.User.Email,
+                phone = patient.User.PhoneNumber,
+                gender = patient.Gender,
+                dateOfBirth = patient.DateOfBirth?.ToString("yyyy-MM-dd"),
+                imageUrl = patient.ProfileImageUrl,
+                status = patient.User.IsActive ? "active" : "inactive",
+                appointmentCount
+            });
         }
 
+        // POST api/center/workspace/patients/{patientId}/notes: appends a note to a patient.
         [HttpPost("workspace/patients/{patientId:int}/notes")]
         public async Task<IActionResult> AddPatientNote(int patientId, AddPatientNoteDto dto)
         {
@@ -785,6 +985,7 @@ namespace graduatio_project.Controllers
             });
         }
 
+        // PUT api/center/workspace/appointments/{appointmentId}/status: accepts, completes or cancels an appointment.
         [HttpPut("workspace/appointments/{appointmentId:int}/status")]
         public async Task<IActionResult> UpdateAppointmentStatus(
             int appointmentId, UpdateAppointmentStatusDto dto)
@@ -804,8 +1005,44 @@ namespace graduatio_project.Controllers
                 return ApiError.NotFound("not_found", "Appointment not found.");
             }
 
+            var previousStatus = appointment.Status;
             AppointmentStatusRules.Apply(appointment, dto.Status, dto.Reason);
             await _context.SaveChangesAsync();
+
+            //  الجرس: المريض والمعالج يُعلمون بتغيّر الحالة، والأدمن عند الإلغاء
+            if (previousStatus != appointment.Status)
+            {
+                var patientUserId = await _context.Patients.AsNoTracking()
+                    .Where(p => p.PatientId == appointment.PatientId)
+                    .Select(p => p.UserId)
+                    .FirstOrDefaultAsync();
+                var therapistUserId = await _context.Therapists.AsNoTracking()
+                    .Where(t => t.TherapistId == appointment.TherapistId)
+                    .Select(t => t.UserId)
+                    .FirstOrDefaultAsync();
+
+                await _notifications.NotifyAsync(
+                    patientUserId,
+                    "appointment",
+                    "Appointment update",
+                    $"Your appointment is now {appointment.Status}.",
+                    appointment.AppointmentId);
+                await _notifications.NotifyAsync(
+                    therapistUserId,
+                    "appointmentChange",
+                    "Appointment update",
+                    $"An appointment is now {appointment.Status}.",
+                    appointment.AppointmentId);
+
+                if (appointment.Status == "Cancelled")
+                {
+                    await _notifications.NotifyAdminsAsync(
+                        "appointmentCancelled",
+                        "Appointment cancelled",
+                        "An appointment was cancelled.",
+                        appointment.AppointmentId);
+                }
+            }
 
             var loaded = await AppointmentMapper.LoadAsync(_context,
                 _context.Appointments.Where(a => a.AppointmentId == appointmentId));
@@ -814,6 +1051,7 @@ namespace graduatio_project.Controllers
                 loaded.appointments, loaded.centers, loaded.therapists, loaded.services)[0]);
         }
 
+        // POST api/center/workspace/reviews/{reviewId}/reply: stores the center's reply to a review.
         [HttpPost("workspace/reviews/{reviewId:int}/reply")]
         public async Task<IActionResult> ReplyToReview(int reviewId, ReplyToReviewDto dto)
         {
@@ -846,6 +1084,7 @@ namespace graduatio_project.Controllers
             });
         }
 
+        // GET api/center/workspace/preferences: notification switches of the signed-in account.
         [HttpGet("workspace/preferences")]
         public async Task<IActionResult> GetPreferences()
         {
@@ -867,6 +1106,7 @@ namespace graduatio_project.Controllers
             });
         }
 
+        // PUT api/center/workspace/preferences: saves the notification switches of the account.
         [HttpPut("workspace/preferences")]
         public async Task<IActionResult> UpdatePreferences(DTOs.Patient.UpdatePreferencesDto dto)
         {
@@ -902,6 +1142,33 @@ namespace graduatio_project.Controllers
             });
         }
 
+        //  المريض ينتمي للمركز عبر رابط مباشر أو موعد أو ملاحظة
+        private async Task<bool> CenterHasPatientAsync(int centerId, int patientId)
+        {
+            if (await _context.CenterPatients.AsNoTracking()
+                .AnyAsync(cp => cp.CenterId == centerId && cp.PatientId == patientId))
+            {
+                return true;
+            }
+
+            if (await _context.Appointments.AsNoTracking()
+                .AnyAsync(a => a.CenterId == centerId && a.PatientId == patientId))
+            {
+                return true;
+            }
+
+            return await _context.PatientNotes.AsNoTracking()
+                .AnyAsync(n => n.CenterId == centerId && n.PatientId == patientId);
+        }
+
+        //  الجنس يخزّن male/female فقط، و"غير محدد" يبقى فارغًا
+        private static string? NormalizeGender(string? gender)
+        {
+            var value = gender?.Trim().ToLowerInvariant();
+            return value is "male" or "female" ? value : null;
+        }
+
+        // Error response when the specialty id does not exist, otherwise null.
         private async Task<IActionResult?> ValidateSpecialtyAsync(int specialtyId)
         {
             var exists = await _context.Specialties.AsNoTracking()
@@ -915,6 +1182,7 @@ namespace graduatio_project.Controllers
                 }, "Specialty does not exist.");
         }
 
+        // Center and user behind the token, or the error response the caller should return.
         private async Task<(Center? center, User? user, IActionResult? error)> ResolveCenterAsync()
         {
             if (!CurrentUser.TryGetUserId(User, out var userId))

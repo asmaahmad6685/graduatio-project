@@ -12,9 +12,6 @@ namespace graduatio_project.Controllers
     //  مساحة المعالج: مواعيده ومرضاه ومحادثاته وجدوله
     //  الروابط:
     //    GET  /api/therapist/workspace
-    //    PUT  /api/therapist/workspace/schedule
-    //    PUT  /api/therapist/workspace/appointments/{appointmentId}/status
-    //    GET  /api/therapist/workspace/patients
     //    GET/PUT /api/therapist/workspace/preferences
     [Route("api/therapist")]
     [ApiController]
@@ -22,12 +19,36 @@ namespace graduatio_project.Controllers
     public class TherapistWorkspaceController : ControllerBase
     {
         private readonly ApplicationDbContext _context;
+        private readonly IWebHostEnvironment _environment;
+        private readonly NotificationService _notifications;
 
-        public TherapistWorkspaceController(ApplicationDbContext context)
+        // Wires the database, file storage and services the therapist workspace calls.
+        public TherapistWorkspaceController(
+            ApplicationDbContext context,
+            IWebHostEnvironment environment,
+            NotificationService notifications)
         {
             _context = context;
+            _environment = environment;
+            _notifications = notifications;
         }
 
+        //  رفع مرفق رسالة: نفس عقد صورة المريض (حقل file، ٢ ميجابايت، { url })
+        [HttpPost("workspace/images")]
+        [RequestSizeLimit(ImageStorage.MaxBytes + 1024 * 1024)]
+        public async Task<IActionResult> UploadImage(IFormFile? file)
+        {
+            var validation = ImageStorage.Validate(file);
+            if (validation != null)
+            {
+                return validation;
+            }
+
+            var url = await ImageStorage.SaveAsync(file!, _environment);
+            return Ok(new { url });
+        }
+
+        // GET api/therapist/workspace: own profile, patients, appointments and messages of the therapist.
         [HttpGet("workspace")]
         public async Task<IActionResult> GetWorkspace()
         {
@@ -119,10 +140,12 @@ namespace graduatio_project.Controllers
                 {
                     id = therapist.TherapistId.ToString(),
                     name = therapist.FullName,
+                    nameAr = therapist.FullNameAr,
                     email = user.Email,
                     phone = user.PhoneNumber,
                     imageUrl = therapist.ProfileImageUrl,
                     bio = therapist.Bio,
+                    bioAr = therapist.BioAr,
                     specialtyId = therapist.SpecialtyId,
                     specialty = specialty == null
                         ? null
@@ -208,145 +231,7 @@ namespace graduatio_project.Controllers
             });
         }
 
-        //  جدول المعالج: نضيف أو نحدّث يومًا واحدًا في كل طلب
-        [HttpPut("workspace/schedule")]
-        public async Task<IActionResult> UpdateSchedule(SaveScheduleDto dto)
-        {
-            var resolved = await ResolveTherapistAsync();
-            if (resolved.error != null)
-            {
-                return resolved.error;
-            }
-
-            if (!Enum.TryParse<DayOfWeek>(dto.DayOfWeek, true, out var dayOfWeek))
-            {
-                return ApiError.Validation(new Dictionary<string, string[]>
-                {
-                    ["DayOfWeek"] = new[] { "DayOfWeek must be a valid day name." }
-                }, "DayOfWeek must be a valid day name.");
-            }
-
-            var errors = new Dictionary<string, string[]>();
-
-            if (!TimeOnly.TryParseExact(dto.StartTime, "HH:mm", CultureInfo.InvariantCulture,
-                    DateTimeStyles.None, out var start))
-            {
-                errors["StartTime"] = new[] { "Use HH:MM." };
-            }
-
-            if (!TimeOnly.TryParseExact(dto.EndTime, "HH:mm", CultureInfo.InvariantCulture,
-                    DateTimeStyles.None, out var end))
-            {
-                errors["EndTime"] = new[] { "Use HH:MM." };
-            }
-
-            if (errors.Count > 0)
-            {
-                return ApiError.Validation(errors);
-            }
-
-            if (end <= start)
-            {
-                return ApiError.Validation(new Dictionary<string, string[]>
-                {
-                    ["EndTime"] = new[] { "endTime must be after startTime." }
-                }, "endTime must be after startTime.");
-            }
-
-            var schedule = await _context.TherapistSchedules
-                .FirstOrDefaultAsync(s => s.TherapistId == resolved.therapist!.TherapistId
-                    && s.DayOfWeek == dayOfWeek);
-
-            if (schedule == null)
-            {
-                schedule = new TherapistSchedule
-                {
-                    TherapistId = resolved.therapist!.TherapistId,
-                    DayOfWeek = dayOfWeek
-                };
-                _context.TherapistSchedules.Add(schedule);
-            }
-
-            schedule.StartTime = start;
-            schedule.EndTime = end;
-            schedule.IsAvailable = dto.IsAvailable;
-
-            await _context.SaveChangesAsync();
-
-            return Ok(new
-            {
-                dayOfWeek = schedule.DayOfWeek.ToString().ToLowerInvariant(),
-                startTime = schedule.StartTime.ToString("HH:mm"),
-                endTime = schedule.EndTime.ToString("HH:mm"),
-                isAvailable = schedule.IsAvailable
-            });
-        }
-
-        [HttpPut("workspace/appointments/{appointmentId:int}/status")]
-        public async Task<IActionResult> UpdateAppointmentStatus(
-            int appointmentId, TherapistAppointmentStatusDto dto)
-        {
-            var resolved = await ResolveTherapistAsync();
-            if (resolved.error != null)
-            {
-                return resolved.error;
-            }
-
-            var appointment = await _context.Appointments
-                .FirstOrDefaultAsync(a => a.AppointmentId == appointmentId
-                    && a.TherapistId == resolved.therapist!.TherapistId);
-
-            if (appointment == null)
-            {
-                return ApiError.NotFound("not_found", "Appointment not found.");
-            }
-
-            AppointmentStatusRules.Apply(appointment, dto.Status, dto.Reason);
-            await _context.SaveChangesAsync();
-
-            var loaded = await AppointmentMapper.LoadAsync(_context,
-                _context.Appointments.Where(a => a.AppointmentId == appointmentId));
-
-            return Ok(AppointmentMapper.Build(
-                loaded.appointments, loaded.centers, loaded.therapists, loaded.services)[0]);
-        }
-
-        //  المرضى الذين لديهم موعد مع هذا المعالج فقط
-        [HttpGet("workspace/patients")]
-        public async Task<IActionResult> GetPatients()
-        {
-            var resolved = await ResolveTherapistAsync();
-            if (resolved.error != null)
-            {
-                return resolved.error;
-            }
-
-            var therapistId = resolved.therapist!.TherapistId;
-
-            var patientIds = await _context.Appointments.AsNoTracking()
-                .Where(a => a.TherapistId == therapistId)
-                .Select(a => a.PatientId)
-                .Distinct()
-                .ToListAsync();
-
-            var patients = await _context.Patients.AsNoTracking()
-                .Include(p => p.User)
-                .Where(p => patientIds.Contains(p.PatientId))
-                .OrderBy(p => p.FullName)
-                .ToListAsync();
-
-            return Ok(patients.Select(p => new
-            {
-                id = p.PatientId.ToString(),
-                name = p.FullName,
-                email = p.User?.Email,
-                phone = p.User?.PhoneNumber,
-                gender = p.Gender,
-                dateOfBirth = p.DateOfBirth?.ToString("yyyy-MM-dd"),
-                imageUrl = p.ProfileImageUrl
-            }).ToList());
-        }
-
+        // GET api/therapist/workspace/preferences: notification switches of the therapist.
         [HttpGet("workspace/preferences")]
         public async Task<IActionResult> GetPreferences()
         {
@@ -368,6 +253,7 @@ namespace graduatio_project.Controllers
             });
         }
 
+        // PUT api/therapist/workspace/preferences: saves the notification switches of the therapist.
         [HttpPut("workspace/preferences")]
         public async Task<IActionResult> UpdatePreferences(DTOs.Patient.UpdatePreferencesDto dto)
         {

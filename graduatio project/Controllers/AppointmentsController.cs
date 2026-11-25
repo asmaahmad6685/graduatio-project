@@ -17,12 +17,16 @@ namespace graduatio_project.Controllers
     public class AppointmentsController : ControllerBase
     {
         private readonly ApplicationDbContext _context;
+        private readonly NotificationService _notifications;
 
-        public AppointmentsController(ApplicationDbContext context)
+        // Wires the database and the notification service used by patient booking.
+        public AppointmentsController(ApplicationDbContext context, NotificationService notifications)
         {
             _context = context;
+            _notifications = notifications;
         }
 
+        // POST api/appointments/request: patient booking; checks the slot, books it and notifies the center.
         [HttpPost("request")]
         public async Task<IActionResult> RequestAppointment(AppointmentRequestDto dto)
         {
@@ -111,6 +115,22 @@ namespace graduatio_project.Controllers
             _context.Appointments.Add(appointment);
             await _context.SaveChangesAsync();
 
+            //  الجرس: المعالج والمركز يُعلمون بطلب الموعد الجديد
+            var therapistUserId = await _context.Therapists.AsNoTracking()
+                .Where(t => t.TherapistId == appointment.TherapistId)
+                .Select(t => t.UserId)
+                .FirstOrDefaultAsync();
+            var centerUserId = await _context.Centers.AsNoTracking()
+                .Where(c => c.CenterId == appointment.CenterId)
+                .Select(c => c.UserId)
+                .FirstOrDefaultAsync();
+            await _notifications.NotifyAsync(
+                new[] { therapistUserId, centerUserId },
+                "appointmentRequest",
+                "New appointment request",
+                $"A patient requested an appointment on {day:yyyy-MM-dd} at {time:HH:mm}.",
+                appointment.AppointmentId);
+
             var payload = AppointmentMapper.Build(
                 new[] { appointment },
                 new Dictionary<int, Center> { [appointment.CenterId] = target.Center },
@@ -121,3 +141,50 @@ namespace graduatio_project.Controllers
         }
     }
 }
+
+
+
+
+// **************************** Shahd Work ***********************************
+
+
+
+
+// using graduatio_project.DTOs.Appointments;
+// using graduatio_project.Services;
+// using Microsoft.AspNetCore.Authorization;
+// using Microsoft.AspNetCore.Mvc;
+// using Microsoft.AspNetCore.Mvc.ModelBinding;
+
+// namespace graduatio_project.Controllers;
+
+// [Route("api/[controller]")]
+// [ApiController]
+// [Authorize(Roles = "Patient")]
+// public sealed class AppointmentsController(AppointmentService service) : AppointmentControllerBase
+// {
+//     [HttpPost]
+//     public Task<IActionResult> Create(CreateAppointmentDto request, CancellationToken cancellationToken) =>
+//         ExecuteAsync(userId => service.CreateAsync(userId, request, cancellationToken),
+//             appointment => CreatedAtAction(nameof(Get), new { appointmentId = appointment.AppointmentId }, appointment));
+
+//     [HttpGet]
+//     public Task<IActionResult> List(CancellationToken cancellationToken) =>
+//         ExecuteAsync(userId => service.ListPatientAsync(userId, cancellationToken));
+
+//     [HttpGet("{appointmentId:int}")]
+//     public Task<IActionResult> Get(int appointmentId, CancellationToken cancellationToken) =>
+//         ExecuteAsync(userId => service.GetPatientAsync(userId, appointmentId, cancellationToken));
+
+//     [HttpPatch("{appointmentId:int}/cancel")]
+//     public Task<IActionResult> Cancel(int appointmentId,
+//         [FromBody(EmptyBodyBehavior = EmptyBodyBehavior.Allow)] CancellationReasonDto? request,
+//         CancellationToken cancellationToken) =>
+//         ExecuteAsync(userId => service.CancelPatientAsync(userId, appointmentId,
+//             request ?? new CancellationReasonDto(), cancellationToken));
+
+//     [HttpPatch("{appointmentId:int}/reschedule")]
+//     public Task<IActionResult> Reschedule(int appointmentId, RescheduleAppointmentDto request,
+//         CancellationToken cancellationToken) =>
+//         ExecuteAsync(userId => service.RescheduleAsync(userId, appointmentId, request, cancellationToken));
+// }

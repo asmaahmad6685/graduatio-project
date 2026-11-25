@@ -8,6 +8,9 @@
 
         public string FullName { get; set; } = string.Empty;
 
+        //  صورة الأدمن الشخصية (ملف مرفوع أو رابط خارجي)
+        public string? ProfileImageUrl { get; set; }
+
         public User User { get; set; } = null!;
     }
 }

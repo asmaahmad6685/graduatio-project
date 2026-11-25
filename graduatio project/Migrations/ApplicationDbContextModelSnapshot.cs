@@ -34,6 +34,10 @@ namespace graduatio_project.Migrations
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
+                    b.Property<string>("ProfileImageUrl")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
                     b.Property<int>("UserId")
                         .HasColumnType("int");
 
@@ -181,8 +185,15 @@ namespace graduatio_project.Migrations
                     b.Property<int>("AssessmentId")
                         .HasColumnType("int");
 
+                    b.Property<int?>("NumericValue")
+                        .HasColumnType("int");
+
                     b.Property<int?>("OptionId")
                         .HasColumnType("int");
+
+                    b.Property<string>("OtherDescription")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
 
                     b.Property<int>("QuestionId")
                         .HasColumnType("int");
@@ -273,6 +284,10 @@ namespace graduatio_project.Migrations
 
                     b.Property<string>("Address")
                         .IsRequired()
+                        .HasMaxLength(300)
+                        .HasColumnType("nvarchar(300)");
+
+                    b.Property<string>("AddressArabic")
                         .HasMaxLength(300)
                         .HasColumnType("nvarchar(300)");
 
@@ -412,6 +427,24 @@ namespace graduatio_project.Migrations
                     b.ToTable("CenterImages");
                 });
 
+            modelBuilder.Entity("graduatio_project.Models.CenterPatient", b =>
+                {
+                    b.Property<int>("CenterId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("PatientId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("CenterId", "PatientId");
+
+                    b.HasIndex("PatientId");
+
+                    b.ToTable("CenterPatients");
+                });
+
             modelBuilder.Entity("graduatio_project.Models.CenterWorkingHour", b =>
                 {
                     b.Property<int>("WorkingHourId")
@@ -468,6 +501,41 @@ namespace graduatio_project.Migrations
                         .IsUnique();
 
                     b.ToTable("Conversations");
+                });
+
+            modelBuilder.Entity("graduatio_project.Models.ExternalLogin", b =>
+                {
+                    b.Property<int>("ExternalLoginId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("ExternalLoginId"));
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Provider")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("nvarchar(32)");
+
+                    b.Property<string>("ProviderSubject")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("nvarchar(255)");
+
+                    b.Property<int>("UserId")
+                        .HasColumnType("int");
+
+                    b.HasKey("ExternalLoginId");
+
+                    b.HasIndex("Provider", "ProviderSubject")
+                        .IsUnique();
+
+                    b.HasIndex("UserId", "Provider")
+                        .IsUnique();
+
+                    b.ToTable("ExternalLogins");
                 });
 
             modelBuilder.Entity("graduatio_project.Models.Message", b =>
@@ -625,8 +693,12 @@ namespace graduatio_project.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("PatientId"));
 
-                    b.Property<DateTime?>("DateOfBirth")
-                        .HasColumnType("datetime2");
+                    b.Property<string>("City")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<DateOnly?>("DateOfBirth")
+                        .HasColumnType("date");
 
                     b.Property<string>("FullName")
                         .IsRequired()
@@ -684,6 +756,24 @@ namespace graduatio_project.Migrations
                     b.HasIndex("CenterId", "PatientId");
 
                     b.ToTable("PatientNotes");
+                });
+
+            modelBuilder.Entity("graduatio_project.Models.PatientSavedCenter", b =>
+                {
+                    b.Property<int>("PatientId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("CenterId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("SavedAt")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("PatientId", "CenterId");
+
+                    b.HasIndex("CenterId");
+
+                    b.ToTable("PatientSavedCenters");
                 });
 
             modelBuilder.Entity("graduatio_project.Models.RefreshToken", b =>
@@ -804,6 +894,10 @@ namespace graduatio_project.Migrations
                     b.Property<int>("DurationMinutes")
                         .HasColumnType("int");
 
+                    b.Property<string>("ImageUrl")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
                     b.Property<bool>("IsActive")
                         .HasColumnType("bit");
 
@@ -877,6 +971,10 @@ namespace graduatio_project.Migrations
                         .HasMaxLength(1000)
                         .HasColumnType("nvarchar(1000)");
 
+                    b.Property<string>("BioAr")
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
                     b.Property<int>("CenterId")
                         .HasColumnType("int");
 
@@ -885,6 +983,10 @@ namespace graduatio_project.Migrations
 
                     b.Property<string>("FullName")
                         .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("nvarchar(150)");
+
+                    b.Property<string>("FullNameAr")
                         .HasMaxLength(150)
                         .HasColumnType("nvarchar(150)");
 
@@ -992,7 +1094,6 @@ namespace graduatio_project.Migrations
                         .HasColumnType("bit");
 
                     b.Property<string>("PasswordHash")
-                        .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("PhoneNumber")
@@ -1182,6 +1283,25 @@ namespace graduatio_project.Migrations
                     b.Navigation("Center");
                 });
 
+            modelBuilder.Entity("graduatio_project.Models.CenterPatient", b =>
+                {
+                    b.HasOne("graduatio_project.Models.Center", "Center")
+                        .WithMany()
+                        .HasForeignKey("CenterId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("graduatio_project.Models.Patient", "Patient")
+                        .WithMany()
+                        .HasForeignKey("PatientId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Center");
+
+                    b.Navigation("Patient");
+                });
+
             modelBuilder.Entity("graduatio_project.Models.CenterWorkingHour", b =>
                 {
                     b.HasOne("graduatio_project.Models.Center", "Center")
@@ -1210,6 +1330,17 @@ namespace graduatio_project.Migrations
                     b.Navigation("Patient");
 
                     b.Navigation("Therapist");
+                });
+
+            modelBuilder.Entity("graduatio_project.Models.ExternalLogin", b =>
+                {
+                    b.HasOne("graduatio_project.Models.User", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("User");
                 });
 
             modelBuilder.Entity("graduatio_project.Models.Message", b =>
@@ -1276,6 +1407,25 @@ namespace graduatio_project.Migrations
                 });
 
             modelBuilder.Entity("graduatio_project.Models.PatientNote", b =>
+                {
+                    b.HasOne("graduatio_project.Models.Center", "Center")
+                        .WithMany()
+                        .HasForeignKey("CenterId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("graduatio_project.Models.Patient", "Patient")
+                        .WithMany()
+                        .HasForeignKey("PatientId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Center");
+
+                    b.Navigation("Patient");
+                });
+
+            modelBuilder.Entity("graduatio_project.Models.PatientSavedCenter", b =>
                 {
                     b.HasOne("graduatio_project.Models.Center", "Center")
                         .WithMany()

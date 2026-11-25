@@ -6,6 +6,8 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
+
+// Assis-Work
 namespace graduatio_project.Controllers
 {
     //  اكتشاف المراكز — متاح للجميع بدون تسجيل دخول
@@ -19,6 +21,7 @@ namespace graduatio_project.Controllers
     {
         private readonly ApplicationDbContext _context;
 
+        // Wires the database used by the public discovery endpoints.
         public CentersController(ApplicationDbContext context)
         {
             _context = context;
@@ -45,24 +48,6 @@ namespace graduatio_project.Controllers
             var mapped = await CenterMapper.BuildAsync(_context, centers);
 
             return Ok(centers.Select(c => mapped[c.CenterId]).ToList());
-        }
-
-        //  مركز واحد بالحقول الكاملة؛ 404 إذا لم يكن موجودًا أو معتمدًا
-        [HttpGet("{id:int}")]
-        public async Task<IActionResult> GetCenter(int id)
-        {
-            var center = await _context.Centers
-                .AsNoTracking()
-                .Include(c => c.User)
-                .FirstOrDefaultAsync(c => c.CenterId == id && c.Status == "Approved");
-
-            if (center == null)
-            {
-                return ApiError.NotFound("not_found", "Center not found.");
-            }
-
-            var mapped = await CenterMapper.BuildAsync(_context, new[] { center });
-            return Ok(mapped[center.CenterId]);
         }
 
         //  المواعيد المتاحة لمركز ومعالج وخدمة في تاريخ معيّن

@@ -1,10 +1,13 @@
 using System.Globalization;
+using graduatio_project.Hubs;
+using Microsoft.AspNetCore.SignalR;
 using graduatio_project.Data;
 using graduatio_project.DTOs.Messaging;
 using graduatio_project.Models;
 using graduatio_project.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 
 namespace graduatio_project.Controllers
@@ -20,10 +23,85 @@ namespace graduatio_project.Controllers
     public class ConversationsController : ControllerBase
     {
         private readonly ApplicationDbContext _context;
+        private readonly IHubContext<MessagingHub> _hub;
+        private readonly NotificationService _notifications;
 
-        public ConversationsController(ApplicationDbContext context)
+        // Wires the database, the realtime hub and the notification service.
+        public ConversationsController(ApplicationDbContext context,
+            IHubContext<MessagingHub> hub,
+            NotificationService notifications)
         {
             _context = context;
+            _hub = hub;
+            _notifications = notifications;
+        }
+
+        //  فتح محادثة: المريض يفتح محادثة مع معالج — يُنشأ سطر جديد فقط إذا لم يكن موجودًا
+        //  الفهرس الفريد (PatientId, TherapistId) هو الضمان ضد الطلبات المتزامنة
+        [HttpPost]
+        [Authorize(Roles = "Patient")]
+        public async Task<IActionResult> OpenConversation(OpenConversationDto dto, CancellationToken ct)
+        {
+            if (!CurrentUser.TryGetUserId(User, out var userId))
+            {
+                return ApiError.Unauthorized("unauthenticated", "Authentication is required.");
+            }
+
+            var patient = await _context.Patients.AsNoTracking()
+                .FirstOrDefaultAsync(p => p.UserId == userId, ct);
+            if (patient == null)
+            {
+                return ApiError.NotFound("not_found", "Patient profile not found.");
+            }
+
+            var therapist = await _context.Therapists.AsNoTracking()
+                .FirstOrDefaultAsync(t => t.TherapistId == dto.TherapistId, ct);
+            if (therapist == null)
+            {
+                return ApiError.NotFound("not_found", "Physiotherapist not found.");
+            }
+
+            var conversation = await _context.Conversations.AsNoTracking()
+                .FirstOrDefaultAsync(c => c.PatientId == patient.PatientId
+                    && c.TherapistId == therapist.TherapistId, ct);
+
+            var created = false;
+            if (conversation == null)
+            {
+                conversation = new Conversation
+                {
+                    PatientId = patient.PatientId,
+                    TherapistId = therapist.TherapistId,
+                    CreatedAt = DateTime.UtcNow
+                };
+                _context.Conversations.Add(conversation);
+                created = true;
+                try
+                {
+                    await _context.SaveChangesAsync(ct);
+                }
+                catch (DbUpdateException ex) when (ex.InnerException is SqlException { Number: 2601 or 2627 })
+                {
+                    //  طلب متزامن أنشأها أولًا — نعيد قراءة السطر الفائز
+                    conversation = await _context.Conversations.AsNoTracking()
+                        .FirstOrDefaultAsync(c => c.PatientId == patient.PatientId
+                            && c.TherapistId == therapist.TherapistId, ct);
+                    if (conversation == null) throw;
+                }
+            }
+
+            //  دفع فوري للمعالج: المحادثة الجديدة تظهر في قائمته دون انتظار البولي
+            if (created)
+            {
+                await NotifyConversationAsync(conversation, "opened");
+            }
+
+            return Ok(new
+            {
+                id = conversation.ConversationId.ToString(),
+                patientId = conversation.PatientId.ToString(),
+                therapistId = conversation.TherapistId.ToString()
+            });
         }
 
         //  فقط طرفا المحادثة يستطيع قراءتها: المريض صاحبها أو المعالج المشارك فيها
@@ -53,7 +131,11 @@ namespace graduatio_project.Controllers
                 query = query.Where(m => m.SentAt > sinceUtc.Value);
             }
 
-            var messages = await query.OrderBy(m => m.SentAt).ToListAsync();
+            //  ThenBy يمنع ترتيبًا عشوائيًا للرسائل المُرسلة في نفس الثانية
+            var messages = await query
+                .OrderBy(m => m.SentAt)
+                .ThenBy(m => m.MessageId)
+                .ToListAsync();
 
             var senderIds = messages.Select(m => m.SenderUserId).Distinct().ToList();
             var emails = await _context.Users.AsNoTracking()
@@ -100,6 +182,7 @@ namespace graduatio_project.Controllers
             return Ok(new { messages = result });
         }
 
+        // POST api/conversations/{id}/messages: stores a message and pushes it to the other participant.
         [HttpPost("{id:int}/messages")]
         public async Task<IActionResult> SendMessage(int id, SendMessageDto dto)
         {
@@ -114,18 +197,45 @@ namespace graduatio_project.Controllers
                 return ApiError.Unauthorized("unauthenticated", "Authentication is required.");
             }
 
+            var text = dto.Text?.Trim() ?? string.Empty;
+            var attachment = string.IsNullOrWhiteSpace(dto.Attachment) ? null : dto.Attachment.Trim();
+
+            //  الرسالة الفارغة تمامًا مرفوضة: نص أو مرفق على الأقل
+            if (text.Length == 0 && attachment == null)
+            {
+                return ApiError.Validation(new Dictionary<string, string[]>
+                {
+                    ["Text"] = new[] { "A message needs text or an attachment." }
+                });
+            }
+
             var message = new Message
             {
                 ConversationId = id,
                 SenderUserId = userId,
-                MessageText = dto.Text.Trim(),
-                AttachmentUrl = string.IsNullOrWhiteSpace(dto.Attachment) ? null : dto.Attachment,
+                MessageText = text,
+                AttachmentUrl = attachment,
                 IsRead = false,
                 SentAt = DateTime.UtcNow
             };
 
             _context.Messages.Add(message);
             await _context.SaveChangesAsync();
+
+            //  الحدث يُدفع للطرف الآخر فورًا؛ البث الفاشل لا يُبطل الرسالة المحفوظة
+            await NotifyConversationAsync(access.conversation!, "message");
+
+            //  إشعار الجرس للطرف الآخر، مع تجنب تكرار إشعار غير مقروء لمحادثة نفسها
+            var recipientIds = (await ParticipantUserIdsAsync(access.conversation!))
+                .Where(id => id != userId)
+                .ToList();
+            await _notifications.NotifyAsync(
+                recipientIds,
+                "message",
+                "New message",
+                "You have a new message.",
+                access.conversation!.ConversationId,
+                onlyWhenUnreadExists: true);
 
             return Ok(new
             {
@@ -162,10 +272,75 @@ namespace graduatio_project.Controllers
 
             await _context.SaveChangesAsync();
 
+            //  إيصال القراءة يصل المرسل في نفس اللحظة
+            await NotifyConversationAsync(access.conversation!, "read");
+
             return NoContent();
         }
 
         //  نتحقق أن المستخدم الحالي طرفًا في المحادثة
+        //  دفع فوري إلى كل جلسات طرفي المحادثة عبر SignalR:
+        //  البث خطوة منفصلة عن الحفظ، فشله يُسجَّل فقط ولا يُسقط استجابة ناجحة،
+        //  والبولي الصامدة (20 ثانية) يبقى شبكة الأمان لكل حدث ضائع
+        //  معرّفات المستخدمين الطرفين في المحادثة (مريض + معالج)
+        private async Task<List<int>> ParticipantUserIdsAsync(Conversation conversation)
+        {
+            var userIds = new List<int>();
+
+            var patientUserId = conversation.Patient?.UserId ?? 0;
+            if (patientUserId == 0 && conversation.PatientId != 0)
+            {
+                patientUserId = await _context.Patients.AsNoTracking()
+                    .Where(p => p.PatientId == conversation.PatientId)
+                    .Select(p => p.UserId)
+                    .FirstOrDefaultAsync();
+            }
+            if (patientUserId != 0)
+            {
+                userIds.Add(patientUserId);
+            }
+
+            if (conversation.TherapistId != 0)
+            {
+                var therapistUserId = await _context.Therapists.AsNoTracking()
+                    .Where(t => t.TherapistId == conversation.TherapistId)
+                    .Select(t => t.UserId)
+                    .FirstOrDefaultAsync();
+                if (therapistUserId != 0)
+                {
+                    userIds.Add(therapistUserId);
+                }
+            }
+
+            return userIds;
+        }
+
+        // Sends an in-app notification to the other side of a conversation.
+        private async Task NotifyConversationAsync(Conversation conversation, string type)
+        {
+            try
+            {
+                var targets = (await ParticipantUserIdsAsync(conversation))
+                    .Distinct()
+                    .Select(id => id.ToString())
+                    .ToArray();
+                if (targets.Length == 0)
+                {
+                    return;
+                }
+
+                await _hub.Clients.Users(targets).SendAsync("workspaceChanged", new
+                {
+                    type,
+                    conversationId = conversation.ConversationId.ToString()
+                });
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[Messaging] push failed for conversation {conversation.ConversationId}: {ex.Message}");
+            }
+        }
+
         private async Task<(Conversation? conversation, int userId, IActionResult? error)>
             AuthorizeConversationAsync(int conversationId)
         {

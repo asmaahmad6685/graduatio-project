@@ -10,6 +10,10 @@
 
         public int? OptionId { get; set; }
 
+        public int? NumericValue { get; set; }
+
+        public string? OtherDescription { get; set; }
+
         public Assessment Assessment { get; set; } = null!;
 
         public AssessmentQuestion Question { get; set; } = null!;

@@ -21,15 +21,28 @@ namespace graduatio_project.DTOs.Therapist
         [MinLength(8)]
         public string Password { get; set; } = string.Empty;
 
+        //  رقم هاتف المعالج - اختياري
+        [MaxLength(20)]
+        public string? PhoneNumber { get; set; }
+
         //  التخصص الخاص بالمعالج
         [Required]
         public int SpecialtyId { get; set; }
 
+        //  الاسم الكامل بالعربية - اختياري
+        [MaxLength(150)]
+        public string? FullNameAr { get; set; }
+
         //  نبذة تعريفية عن المعالج - اختيارية
-        [MaxLength(1500)]
+        [MaxLength(1000)]
         public string? Bio { get; set; }
 
+        //  النبذة التعريفية بالعربية - اختيارية
+        [MaxLength(1000)]
+        public string? BioAr { get; set; }
+
         //  عدد سنوات الخبرة - اختياري
+        [Range(0, int.MaxValue)]
         public int? YearsOfExperience { get; set; }
 
         //  المؤهلات والشهادات - اختيارية
@@ -43,5 +56,9 @@ namespace graduatio_project.DTOs.Therapist
         //  رابط أو مسار صورة المعالج - اختياري
         [MaxLength(500)]
         public string? ProfileImageUrl { get; set; }
+
+        //  الخدمات التي يقدمها المعالج عند إنشائه - اختياري
+        // ويجب أن تكون جميعها من خدمات نفس المركز
+        public List<int>? ServiceIds { get; set; }
     }
 }

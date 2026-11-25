@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
 using graduatio_project.Services;
+using graduatio_project.Options;
 //  ������ OpenApi ��� ����� Swagger ��� JWT Authentication
 using Microsoft.OpenApi.Models;
 
@@ -17,9 +18,11 @@ namespace graduatio_project
 {
     public class Program
     {
+        // Builds the web host, registers the services, seeds the database and maps the controllers and hub.
         public static void Main(string[] args)
         {
             var builder = WebApplication.CreateBuilder(args);
+            //const string localFrontendCorsPolicy = "LocalFrontend";
 
             // Add services to the container.
 
@@ -29,7 +32,16 @@ namespace graduatio_project
             {
                 options.JsonSerializerOptions.Converters.Add(new FlexibleIntConverter());
                 options.JsonSerializerOptions.Converters.Add(new FlexibleNullableIntConverter());
-            });
+            });  
+
+            // builder.Services.AddCors(options =>
+            // {
+            //     options.AddPolicy(localFrontendCorsPolicy, policy =>
+            //         policy.WithOrigins("http://localhost:5173", "http://127.0.0.1:5173")
+            //             .WithMethods("GET", "HEAD", "POST", "PUT", "PATCH", "DELETE", "OPTIONS")
+            //             .AllowAnyHeader());
+            // });
+
             builder.Services.AddDbContext<ApplicationDbContext>(options =>
                 options.UseSqlServer(
                     builder.Configuration.GetConnectionString("PhysioGuideConnection")
@@ -40,6 +52,53 @@ namespace graduatio_project
 
             // ����� TokenService ��� ������ ����� Access Token ���� ��� Controllers
             builder.Services.AddScoped<TokenService>();
+            builder.Services.AddScoped<AssessmentService>();
+            builder.Services.AddSingleton(TimeProvider.System);
+            builder.Services.AddSingleton<SchedulingClock>();
+            builder.Services.AddScoped<ScheduleService>();
+            builder.Services.AddScoped<AvailabilityService>();
+            builder.Services.AddScoped<SchedulingWriteCoordinator>();
+            builder.Services.AddScoped<AppointmentService>();
+
+            //  دفع فورية للمحادثات: Hub تبث أحداث الرسائل لكل جلسات المستخدم
+            builder.Services.AddSignalR();
+
+            //  إشعارات داخل التطبيق: إنشاء عند الأحداث + بث فوري للجرس
+            builder.Services.AddScoped<NotificationService>();
+
+            // Disabled until a real Web Client ID is configured. Enabling with
+            // invalid settings fails at startup; existing password auth is untouched.
+            builder.Services.AddOptions<GoogleAuthOptions>()
+                .Bind(builder.Configuration.GetSection(GoogleAuthOptions.SectionName))
+                .Validate(options => !options.Enabled || options.HasValidWebClientId(),
+                    "GoogleAuth:WebClientId must be a configured Google Web Client ID when enabled.")
+                .ValidateOnStart();
+            builder.Services.AddSingleton<GoogleNonceStore>();
+            builder.Services.AddSingleton<TimeProvider>(TimeProvider.System);
+            builder.Services.AddSingleton<IGoogleTokenValidator, GoogleTokenValidator>();
+            builder.Services.AddSingleton<GoogleRegistrationTicketStore>();
+            builder.Services.AddRateLimiter(options =>
+            {
+                options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+                options.OnRejected = async (context, ct) =>
+                {
+                    context.HttpContext.Response.Headers.CacheControl = "no-store";
+                    context.HttpContext.Response.Headers.RetryAfter = "60";
+                    await context.HttpContext.Response.WriteAsJsonAsync(new
+                    {
+                        message = "Too many Google authentication requests. Try again later.",
+                        code = "rate_limit_exceeded"
+                    }, cancellationToken: ct);
+                };
+                options.AddPolicy("GoogleAuth", context =>
+                    System.Threading.RateLimiting.RateLimitPartition.GetFixedWindowLimiter(
+                        context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+                        _ => new System.Threading.RateLimiting.FixedWindowRateLimiterOptions
+                        {
+                            PermitLimit = 20, Window = TimeSpan.FromMinutes(1), QueueLimit = 0,
+                            AutoReplenishment = true
+                        }));
+            });
 
 
             //  نحن لن نسجّل خروجًا من الخادم بحذف الجلسة لأن الـ JWT stateless
@@ -47,6 +106,11 @@ namespace graduatio_project
             builder.Services.AddScoped<RefreshTokenService>();
 
             var jwtKey = builder.Configuration["Jwt:Key"];
+            if (string.IsNullOrWhiteSpace(jwtKey) || Encoding.UTF8.GetByteCount(jwtKey) < 32)
+            {
+                throw new InvalidOperationException(
+                    "Jwt:Key must be configured with at least 32 UTF-8 bytes. Use User Secrets in Development or the Jwt__Key environment variable.");
+            }
             var jwtIssuer = builder.Configuration["Jwt:Issuer"];
             var jwtAudience = builder.Configuration["Jwt:Audience"];
 
@@ -73,6 +137,20 @@ namespace graduatio_project
                  //  والواجهة تستطيع من خلاله التمييز بين "التوكن منتهي" و "غير مسجل دخول"
                  options.Events = new JwtBearerEvents
                  {
+                     //  WebSocket وSSE لا يحملان ترويسة Authorization لذلك نقرأ
+                     //  التوكن من استعلام access_token لكن لمسارات الـ Hub فقط
+                     OnMessageReceived = context =>
+                     {
+                         if (context.Request.Path.StartsWithSegments("/hubs"))
+                         {
+                             var accessToken = context.Request.Query["access_token"];
+                             if (!string.IsNullOrEmpty(accessToken))
+                             {
+                                 context.Token = accessToken;
+                             }
+                         }
+                         return Task.CompletedTask;
+                     },
                      OnAuthenticationFailed = context =>
                      {
                          if (context.Exception is SecurityTokenExpiredException)
@@ -228,6 +306,13 @@ namespace graduatio_project
             app.UseStaticFiles();
 
             app.UseHttpsRedirection();
+            app.UseRouting();
+            // if (app.Environment.IsDevelopment())
+            // {
+            //     app.UseCors(localFrontendCorsPolicy);
+            // }
+            app.UseRateLimiter();
+
             app.UseAuthentication();
 
             app.UseAuthorization();
@@ -235,7 +320,26 @@ namespace graduatio_project
 
             app.MapControllers();
 
+            //  مسار الدفع الفورية: الجلسات المتصلة تستقبل أحداث المحادثات فور وقوعها
+            app.MapHub<graduatio_project.Hubs.MessagingHub>("/hubs/messages");
+
             app.MapGet("/", () => "Physio Guide API is running!");
+
+            //  تطبيق الـ Migrations تلقائيًا عند التشغيل: بدون هذا السطر
+            //  لا يصل أي تغيير في المخطط إلى القاعدة، وهذا سبب "الجداول غير المسلَّمة"
+            //  إذا فشل التطبيق نطبع الخطأ ونكمل التشغيل حتى لا يوقف مشكلة في المخطط تشغيل الـ API
+            using (var scope = app.Services.CreateScope())
+            {
+                try
+                {
+                    var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+                    db.Database.Migrate();
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"[Migrate] Failed: {ex.Message}");
+                }
+            }
 
             //  ملء القاعدة ببيانات تجريبية عند أول تشغيل فقط
             //  إذا فشل الاتصال نطبع الخطأ ولا نمنع تشغيل الـ API

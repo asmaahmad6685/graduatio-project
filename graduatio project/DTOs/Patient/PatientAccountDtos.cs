@@ -13,13 +13,16 @@ namespace graduatio_project.DTOs.Patient
         [MaxLength(20)]
         public string? PhoneNumber { get; set; }
 
-        //  male أو female بحالة غير حساسة
-        [RegularExpression("^(?i:male|female)$",
-            ErrorMessage = "Gender must be male or female.")]
+        //  male أو female أو other بحالة غير حساسة
+        [RegularExpression("^(?i:male|female|other)$",
+            ErrorMessage = "Gender must be male, female or other.")]
         public string? Gender { get; set; }
 
         [DataType(DataType.Date)]
         public DateTime? DateOfBirth { get; set; }
+
+        [MaxLength(100)]
+        public string? City { get; set; }
 
         [MaxLength(500)]
         public string? ProfileImageUrl { get; set; }

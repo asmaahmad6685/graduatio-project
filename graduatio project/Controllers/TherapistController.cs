@@ -1,5 +1,6 @@
 ﻿using graduatio_project.Data;
 using graduatio_project.DTOs.Therapist;
+using graduatio_project.Models;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
@@ -46,7 +47,6 @@ namespace graduatio_project.Controllers
             // ونجيب معها التخصص والمركز
             var therapist = await _context.Therapists
                 .Include(t => t.Specialty)
-                .Include(t => t.Center)
                 .FirstOrDefaultAsync(t => t.UserId == userId);
 
             //  إذا لم نجد بيانات الـ Therapist نرجع Not Found
@@ -58,18 +58,35 @@ namespace graduatio_project.Controllers
                 });
             }
 
+            if (!await IsEligibleAsync(therapist))
+            {
+                return StatusCode(403, new
+                {
+                    message = "This therapist account is not eligible to access its profile."
+                });
+            }
+
             //  نرجع بيانات الـ Profile للـ Frontend
+            var phoneNumber = await _context.Users.AsNoTracking()
+                .Where(u => u.UserId == userId)
+                .Select(u => u.PhoneNumber)
+                .FirstOrDefaultAsync();
+
             return Ok(new
             {
                 therapistId = therapist.TherapistId,
                 fullName = therapist.FullName,
+                fullNameAr = therapist.FullNameAr,
+                phoneNumber,
                 bio = therapist.Bio,
+                bioAr = therapist.BioAr,
                 profileImageUrl = therapist.ProfileImageUrl,
                 yearsOfExperience = therapist.YearsOfExperience,
                 qualifications = therapist.Qualifications,
                 languages = therapist.Languages,
                 isAvailable = therapist.IsAvailable,
                 isActive = therapist.IsActive,
+                specialtyId = therapist.SpecialtyId,
 
                 specialty = new
                 {
@@ -118,6 +135,18 @@ namespace graduatio_project.Controllers
                 });
             }
 
+            if (!await IsEligibleAsync(therapist))
+            {
+                return StatusCode(403, new
+                {
+                    message = "This therapist account is not eligible to access its profile."
+                });
+            }
+
+            //  الهاتف يعيش في سجل المستخدم، لا في سجل المعالج
+            var user = await _context.Users
+                .FirstOrDefaultAsync(u => u.UserId == userId);
+
             // نتأكد أن الـ Specialty الجديدة موجودة فعلاً
             bool specialtyExists = await _context.Specialties
                 .AnyAsync(s => s.SpecialtyId == dto.SpecialtyId);
@@ -132,13 +161,27 @@ namespace graduatio_project.Controllers
 
             //  نحدث بيانات الـ Therapist بالقيم الجديدة
             therapist.FullName = dto.FullName;
+            therapist.FullNameAr = dto.FullNameAr?.Trim();
             therapist.SpecialtyId = dto.SpecialtyId;
             therapist.Bio = dto.Bio;
+            therapist.BioAr = dto.BioAr?.Trim();
             therapist.ProfileImageUrl = dto.ProfileImageUrl;
             therapist.YearsOfExperience = dto.YearsOfExperience;
             therapist.Qualifications = dto.Qualifications;
             therapist.Languages = dto.Languages;
             therapist.IsAvailable = dto.IsAvailable;
+
+            if (user != null && dto.PhoneNumber != null)
+            {
+                user.PhoneNumber = string.IsNullOrWhiteSpace(dto.PhoneNumber)
+                    ? string.Empty
+                    : dto.PhoneNumber.Trim();
+            }
+
+            if (user != null)
+            {
+                user.UpdatedAt = DateTime.UtcNow;
+            }
 
             //  نحفظ التعديلات في قاعدة البيانات
             await _context.SaveChangesAsync();
@@ -146,9 +189,35 @@ namespace graduatio_project.Controllers
             //  نرجع رسالة نجاح للـ Frontend
             return Ok(new
             {
-                message = "Therapist profile updated successfully."
+                message = "Therapist profile updated successfully.",
+                phoneNumber = user?.PhoneNumber
             });
 
+        }
+
+        // True when the therapist and their login account are both still active.
+        private async Task<bool> IsEligibleAsync(Therapist therapist)
+        {
+            if (!therapist.IsActive || !await _context.Users
+                .AnyAsync(u => u.UserId == therapist.UserId && u.IsActive))
+            {
+                return false;
+            }
+
+            // Load separately so a missing Center/account cannot hide an existing
+            // Therapist in the initial profile query. Reuse it in the GET response.
+            var center = await _context.Centers
+                .Include(c => c.User)
+                .FirstOrDefaultAsync(c => c.CenterId == therapist.CenterId);
+
+            if (center == null || center.User == null || !center.User.IsActive
+                || center.Status != "Approved")
+            {
+                return false;
+            }
+
+            therapist.Center = center;
+            return true;
         }
     }
 }

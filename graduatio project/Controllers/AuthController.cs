@@ -41,23 +41,26 @@ namespace graduatio_project.Controllers
         private readonly PasswordService _passwordService;
 
         //  نستخدم TokenService لإنشاء Access Token بعد نجاح تسجيل الدخول
-        private readonly TokenService _tokenService;
-
-        //  نستخدمه لإنشاء Refresh Token وتجديده وإلغاؤه
+        private readonly TokenService _tokenService;        //  نستخدمه لإنشاء Refresh Token وتجديده وإلغاؤه
         private readonly RefreshTokenService _refreshTokenService;
 
+        //  إشعارات داخل التطبيق (إشعار الأدمن بطلب مركز جديد)
+        private readonly NotificationService _notifications;
+
         //  ASP.NET Core يرسل لنا هذه الخدمات تلقائيًا
-        // عن طريق Dependency Injection
+        //  عن طريق Dependency Injection
         public AuthController(
             ApplicationDbContext context,
             PasswordService passwordService,
             TokenService tokenService,
-            RefreshTokenService refreshTokenService)
+            RefreshTokenService refreshTokenService,
+            NotificationService notifications)
         {
             _context = context;
             _passwordService = passwordService;
             _tokenService = tokenService;
             _refreshTokenService = refreshTokenService;
+            _notifications = notifications;
         }
 
         //  شكل الدور في استجابة الـ API: صغير دائمًا وبالاسم الذي يفهمه الواجهة
@@ -71,6 +74,7 @@ namespace graduatio_project.Controllers
             _ => role.ToLowerInvariant()
         };
 
+        // POST api/auth/register/patient: creates a patient account once the email is confirmed free.
         [EnableRateLimiting("auth-register")]
         [HttpPost("register/patient")]
         public async Task<IActionResult> RegisterPatient(PatientRegisterDto dto)
@@ -112,6 +116,10 @@ namespace graduatio_project.Controllers
                 IsActive = true
             };
 
+            //  نبدأ معاملة واحدة: حساب كامل يعني User و Patient معًا،
+            //  فلا يجوز أن يُحفظ أحدهما ويفشل الآخر (patientId = null عند الدخول)
+            await using var transaction = await _context.Database.BeginTransactionAsync();
+
             //  نضيف الـ User إلى EF Core ليتم حفظه في جدول Users
             _context.Users.Add(user);
 
@@ -135,15 +143,19 @@ namespace graduatio_project.Controllers
             //  نحفظ بيانات المريض في قاعدة البيانات
             await _context.SaveChangesAsync();
 
+            //  لم يفشل أي خطوتين، نؤكد المعاملة
+            await transaction.CommitAsync();
+
             //  نرجع Response للـ Frontend يخبره أن التسجيل نجح
             // مع بعض بيانات الحساب التي تم إنشاؤها
             return Ok(new
             {
                 message = "Patient registered successfully.",
                 userId = user.UserId,
-                patientId = patient.PatientId,
+                //  المعرفات نصوصًا والدور صغيرًا كما في عقد الـ API
+                patientId = patient.PatientId.ToString(),
                 email = user.Email,
-                role = user.Role
+                role = MapRole(user.Role)
             });
         }
 
@@ -190,6 +202,9 @@ namespace graduatio_project.Controllers
                 IsActive = true
             };
 
+            //  معاملة واحدة حتى لا يبقى حساب Center بدون صف Centers
+            await using var transaction = await _context.Database.BeginTransactionAsync();
+
             //  نضيف حساب المركز إلى جدول Users
             _context.Users.Add(user);
 
@@ -226,15 +241,41 @@ namespace graduatio_project.Controllers
             //  نحفظ بيانات المركز في قاعدة البيانات
             await _context.SaveChangesAsync();
 
+            //  ننشئ ساعات عمل افتراضية لمركز جديد حتى يستطيع ضبط أيام عمل معالجيه
+            // السبت (6) حتى الخميس (4) ساعات العمل نفسها، والجمعة (5) نصف يوم
+            for (var day = DayOfWeek.Sunday; day <= DayOfWeek.Saturday; day++)
+            {
+                _context.CenterWorkingHours.Add(new CenterWorkingHour
+                {
+                    CenterId = center.CenterId,
+                    DayOfWeek = day,
+                    OpeningTime = new TimeOnly(8, 0),
+                    ClosingTime = day == DayOfWeek.Friday ? new TimeOnly(13, 0) : new TimeOnly(17, 0),
+                    IsClosed = false
+                });
+            }
+
+
+            //  لم يفشل أي خطوتين، نؤكد المعاملة
+            await transaction.CommitAsync();
+
+            //  الجرس للأدمن: طلب مركز جديد بانتظار الاعتماد
+            await _notifications.NotifyAdminsAsync(
+                "centerApproval",
+                "Center approval required",
+                $"New center application: {dto.CenterName}.",
+                center.CenterId);
+
             //  نرجع Response للـ Frontend يؤكد نجاح تسجيل المركز
             // ونوضح أن حالة المركز Pending لأنه ينتظر موافقة الـ Admin
             return Ok(new
             {
                 message = "Center registered successfully and is pending admin approval.",
                 userId = user.UserId,
-                centerId = center.CenterId,
+                //  المعرف نصًا والدور صغيرًا كما في عقد الـ API
+                centerId = center.CenterId.ToString(),
                 email = user.Email,
-                role = user.Role,
+                role = MapRole(user.Role),
                 status = center.Status
             });
 
@@ -243,7 +284,7 @@ namespace graduatio_project.Controllers
         // الرابط سيكون: POST /api/auth/login
         [EnableRateLimiting("auth-login")]
         [HttpPost("login")]
-        public async Task<IActionResult> Login(LoginDto dto)
+        public async Task<IActionResult> Login(LoginDto dto, [FromQuery] string? role)
         {
             //  نبحث عن المستخدم في جدول Users باستخدام البريد الإلكتروني
             var user = await _context.Users
@@ -269,6 +310,26 @@ namespace graduatio_project.Controllers
             {
                 return ApiError.Unauthorized("unauthenticated", "Invalid email or password.");
             }
+
+            //  كل صفحة تسجيل دخول ترسل دورها في الـ query string؛ الحساب الذي
+            //  ينتمي لبوابة أخرى يُراجع بنفس رد كلمة المرور الخاطئة حتى لا نكشف
+            //  دور البريد المسجل. غياب الـ role يبقى مقبولًا للعملاء القديمة.
+            var requestedRole = role?.Trim().ToLowerInvariant();
+            if (!string.IsNullOrEmpty(requestedRole))
+            {
+                var accountRole = MapRole(user.Role);
+
+                //  بوابة المركز هي أيضًا حيث يسجّل دخول المعالجون
+                var roleMatches = requestedRole == "center"
+                    ? accountRole is "center" or "physiotherapist"
+                    : accountRole == requestedRole;
+
+                if (!roleMatches)
+                {
+                    return ApiError.Unauthorized("unauthenticated", "Invalid email or password.");
+                }
+            }
+
             //  نتحقق أن الحساب فعال ومسموح له بتسجيل الدخول
             if (!user.IsActive)
             {
@@ -310,8 +371,35 @@ namespace graduatio_project.Controllers
                     return ApiError.Forbidden("account_suspended",
                         "Your center account is suspended.");
                 }
-            }            //  بعد نجاح جميع فحوصات تسجيل الدخول
-            //  ننشئ Access Token تحتوي على UserId و Role
+            }
+            if (user.Role == "Therapist")
+            {
+                var therapist = await _context.Therapists
+                    .AsNoTracking()
+                    .Include(t => t.Center)
+                    .ThenInclude(c => c.User)
+                    .FirstOrDefaultAsync(t => t.UserId == user.UserId);
+
+                if (therapist == null || !therapist.IsActive)
+                {
+                    return StatusCode(403, new
+                    {
+                        message = "This therapist account cannot sign in."
+                    });
+                }
+
+                if (therapist.Center == null || therapist.Center.User == null
+                    || !therapist.Center.User.IsActive || therapist.Center.Status != "Approved")
+                {
+                    return StatusCode(403, new
+                    {
+                        message = "Your center must be approved and active before you can sign in."
+                    });
+                }
+            }
+
+            //  بعد نجاح جميع فحوصات تسجيل الدخول
+            // ننشئ Access Token تحتوي على UserId و Role
             var token = _tokenService.CreateToken(
                 user.UserId,
                 user.Role
@@ -396,6 +484,8 @@ namespace graduatio_project.Controllers
         [AllowAnonymous]
         [EnableRateLimiting("auth-forgot")]
         [HttpPost("forgot-password")]
+        [NonAction] // Password recovery is disabled; this method is not an HTTP action.
+        // Issues a password-reset token for an existing account.
         public async Task<IActionResult> ForgotPassword(ForgotPasswordDto dto)
         {
             //  نبحث عن المستخدم في جدول Users باستخدام الإيميل
@@ -445,7 +535,8 @@ namespace graduatio_project.Controllers
 
             // ملاحظة: هذا الـ API يستخدم الـ Reset Token لتعيين كلمة مرور جديدة
             [AllowAnonymous]
-            [HttpPost("reset-password")]
+            [NonAction] // Password recovery is disabled; this method is not an HTTP action.
+            // Replaces the password when the reset token matches its stored hash.
             public async Task<IActionResult> ResetPassword(ResetPasswordDto dto)
             {
                 // ملاحظة: نعمل Hash للـ Token التي أرسلها المستخدم

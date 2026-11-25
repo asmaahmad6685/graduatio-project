@@ -1,0 +1,5361 @@
+{
+  "info": {
+    "_postman_id": "0f6f1d2a-8f1c-4b7e-9d2a-1c2b3a4d5e6f",
+    "name": "PhysioGuide API",
+    "description": "Complete PhysioGuide backend collection, one folder per controller.\n\nHow to use:\n1. Start the API (`dotnet run` in `gysi-proj/graduatio project`) and let it migrate/seed.\n2. Set `baseUrl` if the API is not on http://localhost:5222.\n3. Run the Auth folder first: login requests save patientToken, centerToken, therapistToken and adminToken.\n4. Run folders in order. IDs are captured from responses; defaults point at seeded rows.\n5. Upload requests need a real image selected in their form-data body.\n\nExpected statuses are asserted per request. 400/404/409 are accepted where the outcome depends on seed data or on a record created earlier in the run.\nDestructive admin requests only target throwaway records created by this collection (fallback ids 999999 produce 404).",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{accessToken}}",
+        "type": "string"
+      }
+    ]
+  },
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "const pad = value => String(value).padStart(2, \"0\");",
+          "const date = new Date();",
+          "date.setDate(date.getDate() + 1);",
+          "const yyyy = date.getFullYear();",
+          "const mm = pad(date.getMonth() + 1);",
+          "const dd = pad(date.getDate());",
+          "pm.collectionVariables.set(\"futureDate\", `${yyyy}-${mm}-${dd}`);",
+          "pm.collectionVariables.set(\"futureStart\", `${yyyy}-${mm}-${dd}T09:00:00`);",
+          "pm.collectionVariables.set(\"futureEnd\", `${yyyy}-${mm}-${dd}T10:00:00`);",
+          "pm.collectionVariables.set(\"currentYear\", String(yyyy));"
+        ]
+      }
+    }
+  ],
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:5222",
+      "type": "string"
+    },
+    {
+      "key": "accessToken",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "refreshToken",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "patientToken",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "centerToken",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "therapistToken",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "adminToken",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "userId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "accountFullName",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "accountEmail",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "patientId",
+      "value": "1",
+      "type": "string"
+    },
+    {
+      "key": "patientName",
+      "value": "Demo Patient",
+      "type": "string"
+    },
+    {
+      "key": "patientEmail",
+      "value": "patient@physioguide.dev",
+      "type": "string"
+    },
+    {
+      "key": "centerId",
+      "value": "1",
+      "type": "string"
+    },
+    {
+      "key": "centerName",
+      "value": "PhysioGuide Demo Center",
+      "type": "string"
+    },
+    {
+      "key": "therapistId",
+      "value": "1",
+      "type": "string"
+    },
+    {
+      "key": "therapistName",
+      "value": "Lina Khoury",
+      "type": "string"
+    },
+    {
+      "key": "serviceId",
+      "value": "1",
+      "type": "string"
+    },
+    {
+      "key": "specialtyId",
+      "value": "1",
+      "type": "string"
+    },
+    {
+      "key": "appointmentId",
+      "value": "1",
+      "type": "string"
+    },
+    {
+      "key": "reviewId",
+      "value": "1",
+      "type": "string"
+    },
+    {
+      "key": "conversationId",
+      "value": "1",
+      "type": "string"
+    },
+    {
+      "key": "messageId",
+      "value": "1",
+      "type": "string"
+    },
+    {
+      "key": "notificationId",
+      "value": "1",
+      "type": "string"
+    },
+    {
+      "key": "assessmentId",
+      "value": "1",
+      "type": "string"
+    },
+    {
+      "key": "imageId",
+      "value": "999999",
+      "type": "string"
+    },
+    {
+      "key": "uploadedImageUrl",
+      "value": "https://example.com/physioguide-postman.jpg",
+      "type": "string"
+    },
+    {
+      "key": "savedCenterId",
+      "value": "1",
+      "type": "string"
+    },
+    {
+      "key": "newScheduleId",
+      "value": "999999",
+      "type": "string"
+    },
+    {
+      "key": "existingScheduleId",
+      "value": "1",
+      "type": "string"
+    },
+    {
+      "key": "createdServiceId",
+      "value": "999999",
+      "type": "string"
+    },
+    {
+      "key": "createdPatientId",
+      "value": "999999",
+      "type": "string"
+    },
+    {
+      "key": "createdTherapistId",
+      "value": "999999",
+      "type": "string"
+    },
+    {
+      "key": "adminCreatedTherapistId",
+      "value": "999999",
+      "type": "string"
+    },
+    {
+      "key": "adminAppointmentId",
+      "value": "999999",
+      "type": "string"
+    },
+    {
+      "key": "registeredCenterId",
+      "value": "999999",
+      "type": "string"
+    },
+    {
+      "key": "registeredPatientId",
+      "value": "999999",
+      "type": "string"
+    },
+    {
+      "key": "centerApplicationId",
+      "value": "999999",
+      "type": "string"
+    },
+    {
+      "key": "adminUserId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "googleChallengeId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "slotTime",
+      "value": "09:00",
+      "type": "string"
+    },
+    {
+      "key": "futureDate",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "futureStart",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "futureEnd",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "currentYear",
+      "value": "2026",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "Auth",
+      "description": "Registration, password login, token refresh, logout and password change. Run this folder first: the login requests capture the role tokens used by every other folder.",
+      "auth": {
+        "type": "noauth"
+      },
+      "item": [
+        {
+          "name": "Register patient",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/register/patient",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "register",
+                "patient"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"fullName\": \"Postman Patient\",\n  \"email\": \"patient+{{$guid}}@example.com\",\n  \"phoneNumber\": \"+970599123456\",\n  \"password\": \"Patient123!\",\n  \"gender\": \"female\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const expected = [200,400,409];",
+                  "pm.test(pm.info.requestName + \": status is \" + expected.join(\" / \"), function () {",
+                  "  pm.expect(expected).to.include(pm.response.code);",
+                  "});",
+                  "if (pm.response.code !== 204 && (pm.response.headers.get(\"Content-Type\") || \"\").includes(\"application/json\")) {",
+                  "  pm.test(pm.info.requestName + \": body is valid JSON\", function () {",
+                  "    pm.expect(function () { pm.response.json(); }).to.not.throw();",
+                  "  });",
+                  "}",
+                  "if (pm.response.code >= 200 && pm.response.code < 300) {",
+                  "  try {",
+                  "    const body = pm.response.json();",
+                  "    const value = body.patientId;",
+                  "    if (value !== undefined && value !== null && value !== \"\") pm.collectionVariables.set(\"registeredPatientId\", String(value));",
+                  "  } catch (error) { /* no JSON body */ }",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Register center (pending)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/register/center",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "register",
+                "center"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"centerName\": \"Postman Test Center\",\n  \"email\": \"center+{{$guid}}@example.com\",\n  \"phoneNumber\": \"+970599654321\",\n  \"location\": \"Al Rasheed Street, Gaza\",\n  \"city\": \"Gaza\",\n  \"latitude\": 31.5017,\n  \"longitude\": 34.4668,\n  \"password\": \"Center123!\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const expected = [200,400,409];",
+                  "pm.test(pm.info.requestName + \": status is \" + expected.join(\" / \"), function () {",
+                  "  pm.expect(expected).to.include(pm.response.code);",
+                  "});",
+                  "if (pm.response.code !== 204 && (pm.response.headers.get(\"Content-Type\") || \"\").includes(\"application/json\")) {",
+                  "  pm.test(pm.info.requestName + \": body is valid JSON\", function () {",
+                  "    pm.expect(function () { pm.response.json(); }).to.not.throw();",
+                  "  });",
+                  "}",
+                  "if (pm.response.code >= 200 && pm.response.code < 300) {",
+                  "  try {",
+                  "    const body = pm.response.json();",
+                  "    const value = body.centerId;",
+                  "    if (value !== undefined && value !== null && value !== \"\") pm.collectionVariables.set(\"registeredCenterId\", String(value));",
+                  "  } catch (error) { /* no JSON body */ }",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Login patient",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/login?role=patient",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "login"
+              ],
+              "query": [
+                {
+                  "key": "role",
+                  "value": "patient"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"patient@physioguide.dev\",\n  \"password\": \"Patient123!\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const expected = [200];",
+                  "pm.test(pm.info.requestName + \": status is \" + expected.join(\" / \"), function () {",
+                  "  pm.expect(expected).to.include(pm.response.code);",
+                  "});",
+                  "if (pm.response.code !== 204 && (pm.response.headers.get(\"Content-Type\") || \"\").includes(\"application/json\")) {",
+                  "  pm.test(pm.info.requestName + \": body is valid JSON\", function () {",
+                  "    pm.expect(function () { pm.response.json(); }).to.not.throw();",
+                  "  });",
+                  "}",
+                  "if (pm.response.code === 200) {",
+                  "  const body = pm.response.json();",
+                  "  pm.collectionVariables.set(\"accessToken\", body.accessToken || \"\");",
+                  "  pm.collectionVariables.set(\"refreshToken\", body.refreshToken || \"\");",
+                  "  pm.collectionVariables.set(\"patientToken\", body.accessToken || \"\");",
+                  "  if (body.patientId) pm.collectionVariables.set(\"patientId\", String(body.patientId));",
+                  "  if (body.userId) pm.collectionVariables.set(\"userId\", String(body.userId));",
+                  "  if (body.fullName) pm.collectionVariables.set(\"accountFullName\", String(body.fullName));",
+                  "  if (body.email) pm.collectionVariables.set(\"accountEmail\", String(body.email));",
+                  "}",
+                  "if (pm.response.code === 200) {",
+                  "  pm.test(\"login returns access and refresh tokens\", function () {",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(body.accessToken).to.be.a(\"string\").and.not.empty;",
+                  "    pm.expect(body.refreshToken).to.be.a(\"string\").and.not.empty;",
+                  "  });",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "description": "Saves patientToken, accessToken and refreshToken."
+        },
+        {
+          "name": "Login center",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/login?role=center",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "login"
+              ],
+              "query": [
+                {
+                  "key": "role",
+                  "value": "center"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"center@physioguide.dev\",\n  \"password\": \"Center123!\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const expected = [200];",
+                  "pm.test(pm.info.requestName + \": status is \" + expected.join(\" / \"), function () {",
+                  "  pm.expect(expected).to.include(pm.response.code);",
+                  "});",
+                  "if (pm.response.code !== 204 && (pm.response.headers.get(\"Content-Type\") || \"\").includes(\"application/json\")) {",
+                  "  pm.test(pm.info.requestName + \": body is valid JSON\", function () {",
+                  "    pm.expect(function () { pm.response.json(); }).to.not.throw();",
+                  "  });",
+                  "}",
+                  "if (pm.response.code === 200) {",
+                  "  const body = pm.response.json();",
+                  "  pm.collectionVariables.set(\"accessToken\", body.accessToken || \"\");",
+                  "  pm.collectionVariables.set(\"refreshToken\", body.refreshToken || \"\");",
+                  "  pm.collectionVariables.set(\"centerToken\", body.accessToken || \"\");",
+                  "  if (body.centerId) pm.collectionVariables.set(\"centerId\", String(body.centerId));",
+                  "  if (body.userId) pm.collectionVariables.set(\"userId\", String(body.userId));",
+                  "  if (body.fullName) pm.collectionVariables.set(\"accountFullName\", String(body.fullName));",
+                  "  if (body.email) pm.collectionVariables.set(\"accountEmail\", String(body.email));",
+                  "}",
+                  "if (pm.response.code === 200) {",
+                  "  pm.test(\"login returns access and refresh tokens\", function () {",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(body.accessToken).to.be.a(\"string\").and.not.empty;",
+                  "    pm.expect(body.refreshToken).to.be.a(\"string\").and.not.empty;",
+                  "  });",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "description": "Saves centerToken and centerId. Therapists can also sign in through this portal."
+        },
+        {
+          "name": "Login therapist (center portal)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/login?role=center",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "login"
+              ],
+              "query": [
+                {
+                  "key": "role",
+                  "value": "center"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"lina.khoury@physioguide.dev\",\n  \"password\": \"Therapist123!\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const expected = [200];",
+                  "pm.test(pm.info.requestName + \": status is \" + expected.join(\" / \"), function () {",
+                  "  pm.expect(expected).to.include(pm.response.code);",
+                  "});",
+                  "if (pm.response.code !== 204 && (pm.response.headers.get(\"Content-Type\") || \"\").includes(\"application/json\")) {",
+                  "  pm.test(pm.info.requestName + \": body is valid JSON\", function () {",
+                  "    pm.expect(function () { pm.response.json(); }).to.not.throw();",
+                  "  });",
+                  "}",
+                  "if (pm.response.code === 200) {",
+                  "  const body = pm.response.json();",
+                  "  pm.collectionVariables.set(\"accessToken\", body.accessToken || \"\");",
+                  "  pm.collectionVariables.set(\"refreshToken\", body.refreshToken || \"\");",
+                  "  pm.collectionVariables.set(\"therapistToken\", body.accessToken || \"\");",
+                  "  if (body.therapistId) pm.collectionVariables.set(\"therapistId\", String(body.therapistId));",
+                  "  if (body.userId) pm.collectionVariables.set(\"userId\", String(body.userId));",
+                  "  if (body.fullName) pm.collectionVariables.set(\"accountFullName\", String(body.fullName));",
+                  "  if (body.email) pm.collectionVariables.set(\"accountEmail\", String(body.email));",
+                  "}",
+                  "if (pm.response.code === 200) {",
+                  "  pm.test(\"login returns access and refresh tokens\", function () {",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(body.accessToken).to.be.a(\"string\").and.not.empty;",
+                  "    pm.expect(body.refreshToken).to.be.a(\"string\").and.not.empty;",
+                  "  });",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "description": "Saves therapistToken and therapistId; accessToken is overwritten, so run folder order matters."
+        },
+        {
+          "name": "Login admin",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/login?role=admin",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "login"
+              ],
+              "query": [
+                {
+                  "key": "role",
+                  "value": "admin"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"admin@physioguide.dev\",\n  \"password\": \"Admin123!\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const expected = [200];",
+                  "pm.test(pm.info.requestName + \": status is \" + expected.join(\" / \"), function () {",
+                  "  pm.expect(expected).to.include(pm.response.code);",
+                  "});",
+                  "if (pm.response.code !== 204 && (pm.response.headers.get(\"Content-Type\") || \"\").includes(\"application/json\")) {",
+                  "  pm.test(pm.info.requestName + \": body is valid JSON\", function () {",
+                  "    pm.expect(function () { pm.response.json(); }).to.not.throw();",
+                  "  });",
+                  "}",
+                  "if (pm.response.code === 200) {",
+                  "  const body = pm.response.json();",
+                  "  pm.collectionVariables.set(\"accessToken\", body.accessToken || \"\");",
+                  "  pm.collectionVariables.set(\"refreshToken\", body.refreshToken || \"\");",
+                  "  pm.collectionVariables.set(\"adminToken\", body.accessToken || \"\");",
+                  "  if (body.userId) pm.collectionVariables.set(\"adminUserId\", String(body.userId));",
+                  "  if (body.userId) pm.collectionVariables.set(\"userId\", String(body.userId));",
+                  "  if (body.fullName) pm.collectionVariables.set(\"accountFullName\", String(body.fullName));",
+                  "  if (body.email) pm.collectionVariables.set(\"accountEmail\", String(body.email));",
+                  "}",
+                  "if (pm.response.code === 200) {",
+                  "  pm.test(\"login returns access and refresh tokens\", function () {",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(body.accessToken).to.be.a(\"string\").and.not.empty;",
+                  "    pm.expect(body.refreshToken).to.be.a(\"string\").and.not.empty;",
+                  "  });",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Refresh access token",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/refresh",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "refresh"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refreshToken\": \"{{refreshToken}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const expected = [200,401];",
+                  "pm.test(pm.info.requestName + \": status is \" + expected.join(\" / \"), function () {",
+                  "  pm.expect(expected).to.include(pm.response.code);",
+                  "});",
+                  "if (pm.response.code !== 204 && (pm.response.headers.get(\"Content-Type\") || \"\").includes(\"application/json\")) {",
+                  "  pm.test(pm.info.requestName + \": body is valid JSON\", function () {",
+                  "    pm.expect(function () { pm.response.json(); }).to.not.throw();",
+                  "  });",
+                  "}",
+                  "if (pm.response.code === 200) {",
+                  "  const body = pm.response.json();",
+                  "  pm.collectionVariables.set(\"accessToken\", body.accessToken || \"\");",
+                  "  pm.collectionVariables.set(\"refreshToken\", body.refreshToken || \"\");",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "description": "Rotates the stored refresh token. A second run without a fresh login returns 401 by design (reuse detection)."
+        },
+        {
+          "name": "Change patient password",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/change-password",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "change-password"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{patientToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"currentPassword\": \"Patient123!\",\n  \"newPassword\": \"Patient123!\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const expected = [200,400,401];",
+                  "pm.test(pm.info.requestName + \": status is \" + expected.join(\" / \"), function () {",
+                  "  pm.expect(expected).to.include(pm.response.code);",
+                  "});",
+                  "if (pm.response.code !== 204 && (pm.response.headers.get(\"Content-Type\") || \"\").includes(\"application/json\")) {",
+                  "  pm.test(pm.info.requestName + \": body is valid JSON\", function () {",
+                  "    pm.expect(function () { pm.response.json(); }).to.not.throw();",
+                  "  });",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "description": "Uses the same password so the demo account keeps working. Success revokes all patient refresh tokens."
+        },
+        {
+          "name": "Logout patient",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/logout",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "logout"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{patientToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refreshToken\": \"{{refreshToken}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const expected = [204,401];",
+                  "pm.test(pm.info.requestName + \": status is \" + expected.join(\" / \"), function () {",
+                  "  pm.expect(expected).to.include(pm.response.code);",
+                  "});",
+                  "if (pm.response.code !== 204 && (pm.response.headers.get(\"Content-Type\") || \"\").includes(\"application/json\")) {",
+                  "  pm.test(pm.info.requestName + \": body is valid JSON\", function () {",
+                  "    pm.expect(function () { pm.response.json(); }).to.not.throw();",
+                  "  });",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "description": "Revokes the refresh token. The access token stays valid until it expires."
+        }
+      ]
+    },
+    {
+      "name": "GoogleAuth",
+      "description": "Google Identity Services flow. These calls return 503 when Google auth is disabled; 400/401 are expected for the fake token used here.",
+      "auth": {
+        "type": "noauth"
+      },
+      "item": [
+        {
+          "name": "Create Google challenge",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/Auth/google/challenge",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "Auth",
+                "google",
+                "challenge"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"flowBinding\": \"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const expected = [200,400,503];",
+                  "pm.test(pm.info.requestName + \": status is \" + expected.join(\" / \"), function () {",
+                  "  pm.expect(expected).to.include(pm.response.code);",
+                  "});",
+                  "if (pm.response.code !== 204 && (pm.response.headers.get(\"Content-Type\") || \"\").includes(\"application/json\")) {",
+                  "  pm.test(pm.info.requestName + \": body is valid JSON\", function () {",
+                  "    pm.expect(function () { pm.response.json(); }).to.not.throw();",
+                  "  });",
+                  "}",
+                  "if (pm.response.code >= 200 && pm.response.code < 300) {",
+                  "  try {",
+                  "    const body = pm.response.json();",
+                  "    const value = body.challengeId;",
+                  "    if (value !== undefined && value !== null && value !== \"\") pm.collectionVariables.set(\"googleChallengeId\", String(value));",
+                  "  } catch (error) { /* no JSON body */ }",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Google sign-in (fake ID token)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/Auth/google/sign-in",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "Auth",
+                "google",
+                "sign-in"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"idToken\": \"fake-google-id-token\",\n  \"challengeId\": \"{{googleChallengeId}}\",\n  \"flowVerifier\": \"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const expected = [400,401,503];",
+                  "pm.test(pm.info.requestName + \": status is \" + expected.join(\" / \"), function () {",
+                  "  pm.expect(expected).to.include(pm.response.code);",
+                  "});",
+                  "if (pm.response.code !== 204 && (pm.response.headers.get(\"Content-Type\") || \"\").includes(\"application/json\")) {",
+                  "  pm.test(pm.info.requestName + \": body is valid JSON\", function () {",
+                  "    pm.expect(function () { pm.response.json(); }).to.not.throw();",
+                  "  });",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Google register patient (fake ticket)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/Auth/google/register/patient",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "Auth",
+                "google",
+                "register",
+                "patient"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"registrationTicket\": \"cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc\",\n  \"flowVerifier\": \"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\",\n  \"phoneNumber\": \"+970599111222\",\n  \"fullName\": \"Google Patient\",\n  \"gender\": \"female\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const expected = [400,404,410,503];",
+                  "pm.test(pm.info.requestName + \": status is \" + expected.join(\" / \"), function () {",
+                  "  pm.expect(expected).to.include(pm.response.code);",
+                  "});",
+                  "if (pm.response.code !== 204 && (pm.response.headers.get(\"Content-Type\") || \"\").includes(\"application/json\")) {",
+                  "  pm.test(pm.info.requestName + \": body is valid JSON\", function () {",
+                  "    pm.expect(function () { pm.response.json(); }).to.not.throw();",
+                  "  });",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Google register center (fake ticket)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/Auth/google/register/center",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "Auth",
+                "google",
+                "register",
+                "center"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"registrationTicket\": \"cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc\",\n  \"flowVerifier\": \"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\",\n  \"phoneNumber\": \"+970599333444\",\n  \"centerName\": \"Google Test Center\",\n  \"city\": \"Gaza\",\n  \"location\": \"Al Rasheed Street, Gaza\",\n  \"latitude\": 31.5,\n  \"longitude\": 34.46\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const expected = [400,404,410,503];",
+                  "pm.test(pm.info.requestName + \": status is \" + expected.join(\" / \"), function () {",
+                  "  pm.expect(expected).to.include(pm.response.code);",
+                  "});",
+                  "if (pm.response.code !== 204 && (pm.response.headers.get(\"Content-Type\") || \"\").includes(\"application/json\")) {",
+                  "  pm.test(pm.info.requestName + \": body is valid JSON\", function () {",
+                  "    pm.expect(function () { pm.response.json(); }).to.not.throw();",
+                  "  });",
+                  "}"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Centers (public)",
+      "description": "Anonymous discovery and slot lookup. Captures the first approved center, its first service and therapist, and a free slot for the booking tests.",
+      "auth": {
+        "type": "noauth"
+      },
+      "item": [
+        {
+          "name": "List approved centers",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/centers?city=Gaza",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "centers"
+              ],
+              "query": [
+                {
+                  "key": "city",
+                  "value": "Gaza"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const expected = [200];",
+                  "pm.test(pm.info.requestName + \": status is \" + expected.join(\" / \"), function () {",
+                  "  pm.expect(expected).to.include(pm.response.code);",
+                  "});",
+                  "if (pm.response.code !== 204 && (pm.response.headers.get(\"Content-Type\") || \"\").includes(\"application/json\")) {",
+                  "  pm.test(pm.info.requestName + \": body is valid JSON\", function () {",
+                  "    pm.expect(function () { pm.response.json(); }).to.not.throw();",
+                  "  });",
+                  "}",
+                  "if (pm.response.code === 200) {",
+                  "  const body = pm.response.json();",
+                  "  const centers = Array.isArray(body) ? body : (body.centers || []);",
+                  "  const center = centers[0] || {};",
+                  "  if (center.id) pm.collectionVariables.set(\"centerId\", String(center.id));",
+                  "  if (center.name) pm.collectionVariables.set(\"centerName\", String(center.name));",
+                  "  const service = (center.services || [])[0];",
+                  "  if (service?.id) pm.collectionVariables.set(\"serviceId\", String(service.id));",
+                  "  const therapist = (center.therapists || [])[0];",
+                  "  if (therapist?.id) pm.collectionVariables.set(\"therapistId\", String(therapist.id));",
+                  "  pm.test(\"discovery payload is a list\", () => pm.expect(centers).to.be.an(\"array\"));",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get available slots",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/centers/{{centerId}}/slots?therapistId={{therapistId}}&serviceId={{serviceId}}&date={{futureDate}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "centers",
+                "{{centerId}}",
+                "slots"
+              ],
+              "query": [
+                {
+                  "key": "therapistId",
+                  "value": "{{therapistId}}"
+                },
+                {
+                  "key": "serviceId",
+                  "value": "{{serviceId}}"
+                },
+                {
+                  "key": "date",
+                  "value": "{{futureDate}}"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const expected = [200,400,404];",
+                  "pm.test(pm.info.requestName + \": status is \" + expected.join(\" / \"), function () {",
+                  "  pm.expect(expected).to.include(pm.response.code);",
+                  "});",
+                  "if (pm.response.code !== 204 && (pm.response.headers.get(\"Content-Type\") || \"\").includes(\"application/json\")) {",
+                  "  pm.test(pm.info.requestName + \": body is valid JSON\", function () {",
+                  "    pm.expect(function () { pm.response.json(); }).to.not.throw();",
+                  "  });",
+                  "}",
+                  "if (pm.response.code === 200) {",
+                  "  const body = pm.response.json();",
+                  "  const slots = Array.isArray(body) ? body : [];",
+                  "  pm.test(\"slots are strings\", () => pm.expect(slots).to.be.an(\"array\"));",
+                  "  if (slots[0]) pm.collectionVariables.set(\"slotTime\", String(slots[0]));",
+                  "}"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Appointments",
+      "description": "Patient booking request only. Center/admin status changes live in their own folders.",
+      "auth": {
+        "type": "bearer",
+        "bearer": [
+          {
+            "key": "token",
+            "value": "{{patientToken}}",
+            "type": "string"
+          }
+        ]
+      },
+      "item": [
+        {
+          "name": "Request appointment",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/appointments/request",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "appointments",
+                "request"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"centerId\": \"{{centerId}}\",\n  \"therapistId\": \"{{therapistId}}\",\n  \"serviceId\": \"{{serviceId}}\",\n  \"date\": \"{{futureDate}}\",\n  \"time\": \"{{slotTime}}\",\n  \"notes\": \"Postman booking test\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const expected = [201,400,404,409];",
+                  "pm.test(pm.info.requestName + \": status is \" + expected.join(\" / \"), function () {",
+                  "  pm.expect(expected).to.include(pm.response.code);",
+                  "});",
+                  "if (pm.response.code !== 204 && (pm.response.headers.get(\"Content-Type\") || \"\").includes(\"application/json\")) {",
+                  "  pm.test(pm.info.requestName + \": body is valid JSON\", function () {",
+                  "    pm.expect(function () { pm.response.json(); }).to.not.throw();",
+                  "  });",
+                  "}",
+                  "if (pm.response.code >= 200 && pm.response.code < 300) {",
+                  "  try {",
+                  "    const body = pm.response.json();",
+                  "    const value = body.id;",
+                  "    if (value !== undefined && value !== null && value !== \"\") pm.collectionVariables.set(\"appointmentId\", String(value));",
+                  "  } catch (error) { /* no JSON body */ }",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "description": "Uses the slot captured by the public slots request. 409 means the slot was taken or is invalid."
+        }
+      ]
+    },
+    {
+      "name": "Patient",
+      "description": "Patient account, appointments, messaging workspace, reviews and saved centers.",
+      "auth": {
+        "type": "bearer",
+        "bearer": [
+          {
+            "key": "token",
+            "value": "{{patientToken}}",
+            "type": "string"
+          }
+        ]
+      },
+      "item": [
+        {
+          "name": "Get my appointments",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/patient/appointments?status=&from=&to=",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "patient",
+                "appointments"
+              ],
+              "query": [
+                {
+                  "key": "status",
+                  "value": ""
+                },
+                {
+                  "key": "from",
+                  "value": ""
+                },
+                {
+                  "key": "to",
+                  "value": ""
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const expected = [200];",
+                  "pm.test(pm.info.requestName + \": status is \" + expected.join(\" / \"), function () {",
+                  "  pm.expect(expected).to.include(pm.response.code);",
+                  "});",
+                  "if (pm.response.code !== 204 && (pm.response.headers.get(\"Content-Type\") || \"\").includes(\"application/json\")) {",
+                  "  pm.test(pm.info.requestName + \": body is valid JSON\", function () {",
+                  "    pm.expect(function () { pm.response.json(); }).to.not.throw();",
+                  "  });",
+                  "}",
+                  "if (pm.response.code === 200) {",
+                  "  const body = pm.response.json();",
+                  "  const rows = Array.isArray(body) ? body : (body.appointments || []);",
+                  "  pm.test(\"appointments are a list\", () => pm.expect(rows).to.be.an(\"array\"));",
+                  "  if (rows[0]?.id) pm.collectionVariables.set(\"appointmentId\", String(rows[0].id));",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get messaging workspace",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/patient/messaging-workspace?since=",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "patient",
+                "messaging-workspace"
+              ],
+              "query": [
+                {
+                  "key": "since",
+                  "value": ""
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const expected = [200];",
+                  "pm.test(pm.info.requestName + \": status is \" + expected.join(\" / \"), function () {",
+                  "  pm.expect(expected).to.include(pm.response.code);",
+                  "});",
+                  "if (pm.response.code !== 204 && (pm.response.headers.get(\"Content-Type\") || \"\").includes(\"application/json\")) {",
+                  "  pm.test(pm.info.requestName + \": body is valid JSON\", function () {",
+                  "    pm.expect(function () { pm.response.json(); }).to.not.throw();",
+                  "  });",
+                  "}",
+                  "if (pm.response.code === 200) {",
+                  "  const body = pm.response.json();",
+                  "  pm.test(\"workspace has conversations\", () => pm.expect(body).to.have.property(\"conversations\"));",
+                  "  const conversation = (body.conversations || [])[0];",
+                  "  if (conversation?.id) pm.collectionVariables.set(\"conversationId\", String(conversation.id));",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get my account",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/patient/account",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "patient",
+                "account"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const expected = [200];",
+                  "pm.test(pm.info.requestName + \": status is \" + expected.join(\" / \"), function () {",
+                  "  pm.expect(expected).to.include(pm.response.code);",
+                  "});",
+                  "if (pm.response.code !== 204 && (pm.response.headers.get(\"Content-Type\") || \"\").includes(\"application/json\")) {",
+                  "  pm.test(pm.info.requestName + \": body is valid JSON\", function () {",
+                  "    pm.expect(function () { pm.response.json(); }).to.not.throw();",
+                  "  });",
+                  "}",
+                  "if (pm.response.code === 200) {",
+                  "  const body = pm.response.json();",
+                  "  pm.test(\"account has profile\", () => pm.expect(body).to.have.property(\"profile\"));",
+                  "  if (body.profile?.fullName) pm.collectionVariables.set(\"patientName\", String(body.profile.fullName));",
+                  "  if (body.profile?.email) pm.collectionVariables.set(\"patientEmail\", String(body.profile.email));",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Update my profile",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/patient/account/profile",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "patient",
+                "account",
+                "profile"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"fullName\": \"{{patientName}}\",\n  \"phoneNumber\": \"+970599123456\",\n  \"gender\": \"female\",\n  \"dateOfBirth\": \"1995-04-12T00:00:00\",\n  \"city\": \"Gaza\",\n  \"profileImageUrl\": \"\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const expected = [200,400];",
+                  "pm.test(pm.info.requestName + \": status is \" + expected.join(\" / \"), function () {",
+                  "  pm.expect(expected).to.include(pm.response.code);",
+                  "});",
+                  "if (pm.response.code !== 204 && (pm.response.headers.get(\"Content-Type\") || \"\").includes(\"application/json\")) {",
+                  "  pm.test(pm.info.requestName + \": body is valid JSON\", function () {",
+                  "    pm.expect(function () { pm.response.json(); }).to.not.throw();",
+                  "  });",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Update my preferences",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/patient/account/preferences",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "patient",
+                "account",
+                "preferences"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"emailEnabled\": true,\n  \"inAppEnabled\": true,\n  \"appointmentReminders\": true,\n  \"marketing\": false,\n  \"language\": \"en\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const expected = [200,400];",
+                  "pm.test(pm.info.requestName + \": status is \" + expected.join(\" / \"), function () {",
+                  "  pm.expect(expected).to.include(pm.response.code);",
+                  "});",
+                  "if (pm.response.code !== 204 && (pm.response.headers.get(\"Content-Type\") || \"\").includes(\"application/json\")) {",
+                  "  pm.test(pm.info.requestName + \": body is valid JSON\", function () {",
+                  "    pm.expect(function () { pm.response.json(); }).to.not.throw();",
+                  "  });",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Upload my profile image",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/patient/account/image",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "patient",
+                "account",
+                "image"
+              ]
+            },
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "file",
+                  "type": "file",
+                  "src": [],
+                  "description": "Select a real image file to exercise the upload."
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const expected = [200,400,413,415];",
+                  "pm.test(pm.info.requestName + \": status is \" + expected.join(\" / \"), function () {",
+                  "  pm.expect(expected).to.include(pm.response.code);",
+                  "});",
+                  "if (pm.response.code !== 204 && (pm.response.headers.get(\"Content-Type\") || \"\").includes(\"application/json\")) {",
+                  "  pm.test(pm.info.requestName + \": body is valid JSON\", function () {",
+                  "    pm.expect(function () { pm.response.json(); }).to.not.throw();",
+                  "  });",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "description": "Select an image file in the form-data tab before sending."
+        },
+        {
+          "name": "Create review",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/patient/reviews",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "patient",
+                "reviews"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"centerId\": \"{{centerId}}\",\n  \"rating\": 5,\n  \"comment\": \"Great care from the Postman test.\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const expected = [200,400,404];",
+                  "pm.test(pm.info.requestName + \": status is \" + expected.join(\" / \"), function () {",
+                  "  pm.expect(expected).to.include(pm.response.code);",
+                  "});",
+                  "if (pm.response.code !== 204 && (pm.response.headers.get(\"Content-Type\") || \"\").includes(\"application/json\")) {",
+                  "  pm.test(pm.info.requestName + \": body is valid JSON\", function () {",
+                  "    pm.expect(function () { pm.response.json(); }).to.not.throw();",
+                  "  });",
+                  "}",
+                  "if (pm.response.code >= 200 && pm.response.code < 300) {",
+                  "  try {",
+                  "    const body = pm.response.json();",
+                  "    const value = body.id;",
+                  "    if (value !== undefined && value !== null && value !== \"\") pm.collectionVariables.set(\"reviewId\", String(value));",
+                  "  } catch (error) { /* no JSON body */ }",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "List saved centers",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/patient/saved-centers",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "patient",
+                "saved-centers"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const expected = [200];",
+                  "pm.test(pm.info.requestName + \": status is \" + expected.join(\" / \"), function () {",
+                  "  pm.expect(expected).to.include(pm.response.code);",
+                  "});",
+                  "if (pm.response.code !== 204 && (pm.response.headers.get(\"Content-Type\") || \"\").includes(\"application/json\")) {",
+                  "  pm.test(pm.info.requestName + \": body is valid JSON\", function () {",
+                  "    pm.expect(function () { pm.response.json(); }).to.not.throw();",
+                  "  });",
+                  "}",
+                  "if (pm.response.code === 200) {",
+                  "  const body = pm.response.json();",
+                  "  const rows = Array.isArray(body) ? body : (body.savedCenters || body.centers || []);",
+                  "  pm.test(\"saved centers are a list\", () => pm.expect(rows).to.be.an(\"array\"));",
+                  "  if (rows[0]?.centerId || rows[0]?.id) pm.collectionVariables.set(\"savedCenterId\", String(rows[0].centerId || rows[0].id));",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Save center",
+          "request": {
+            "method": "PUT",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/patient/saved-centers/{{centerId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "patient",
+                "saved-centers",
+                "{{centerId}}"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const expected = [200,204,400,404];",
+                  "pm.test(pm.info.requestName + \": status is \" + expected.join(\" / \"), function () {",
+                  "  pm.expect(expected).to.include(pm.response.code);",
+                  "});",
+                  "if (pm.response.code !== 204 && (pm.response.headers.get(\"Content-Type\") || \"\").includes(\"application/json\")) {",
+                  "  pm.test(pm.info.requestName + \": body is valid JSON\", function () {",
+                  "    pm.expect(function () { pm.response.json(); }).to.not.throw();",
+                  "  });",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Remove saved center",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/patient/saved-centers/{{centerId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "patient",
+                "saved-centers",
+                "{{centerId}}"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const expected = [200,204,404];",
+                  "pm.test(pm.info.requestName + \": status is \" + expected.join(\" / \"), function () {",
+                  "  pm.expect(expected).to.include(pm.response.code);",
+                  "});",
+                  "if (pm.response.code !== 204 && (pm.response.headers.get(\"Content-Type\") || \"\").includes(\"application/json\")) {",
+                  "  pm.test(pm.info.requestName + \": body is valid JSON\", function () {",
+                  "    pm.expect(function () { pm.response.json(); }).to.not.throw();",
+                  "  });",
+                  "}"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Center",
+      "description": "Center-side therapist account creation.",
+      "auth": {
+        "type": "bearer",
+        "bearer": [
+          {
+            "key": "token",
+            "value": "{{centerToken}}",
+            "type": "string"
+          }
+        ]
+      },
+      "item": [
+        {
+          "name": "Create therapist account",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/center/therapists",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "center",
+                "therapists"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"fullName\": \"Postman Therapist\",\n  \"email\": \"therapist+{{$guid}}@example.com\",\n  \"phoneNumber\": \"+970599777888\",\n  \"password\": \"Therapist123!\",\n  \"specialtyId\": \"{{specialtyId}}\",\n  \"fullNameAr\": \"معالج تجريبي\",\n  \"bio\": \"Created by the Postman collection.\",\n  \"bioAr\": \"تم الإنشاء بواسطة مجموعة بوستمان.\",\n  \"yearsOfExperience\": 3,\n  \"qualifications\": \"BSc Physiotherapy\",\n  \"languages\": \"Arabic, English\",\n  \"serviceIds\": [\n    \"{{serviceId}}\"\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const expected = [201,400,404,409];",
+                  "pm.test(pm.info.requestName + \": status is \" + expected.join(\" / \"), function () {",
+                  "  pm.expect(expected).to.include(pm.response.code);",
+                  "});",
+                  "if (pm.response.code !== 204 && (pm.response.headers.get(\"Content-Type\") || \"\").includes(\"application/json\")) {",
+                  "  pm.test(pm.info.requestName + \": body is valid JSON\", function () {",
+                  "    pm.expect(function () { pm.response.json(); }).to.not.throw();",
+                  "  });",
+                  "}",
+                  "if (pm.response.code >= 200 && pm.response.code < 300) {",
+                  "  try {",
+                  "    const body = pm.response.json();",
+                  "    const value = body.id || body.therapistId;",
+                  "    if (value !== undefined && value !== null && value !== \"\") pm.collectionVariables.set(\"createdTherapistId\", String(value));",
+                  "  } catch (error) { /* no JSON body */ }",
+                  "}"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "CenterWorkspace",
+      "description": "Everything the center portal can read or change. The workspace GET captures the ids used by the write requests.",
+      "auth": {
+        "type": "bearer",
+        "bearer": [
+          {
+            "key": "token",
+            "value": "{{centerToken}}",
+            "type": "string"
+          }
+        ]
+      },
+      "item": [
+        {
+          "name": "Get center workspace",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/center/workspace",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "center",
+                "workspace"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const expected = [200];",
+                  "pm.test(pm.info.requestName + \": status is \" + expected.join(\" / \"), function () {",
+                  "  pm.expect(expected).to.include(pm.response.code);",
+                  "});",
+                  "if (pm.response.code !== 204 && (pm.response.headers.get(\"Content-Type\") || \"\").includes(\"application/json\")) {",
+                  "  pm.test(pm.info.requestName + \": body is valid JSON\", function () {",
+                  "    pm.expect(function () { pm.response.json(); }).to.not.throw();",
+                  "  });",
+                  "}",
+                  "if (pm.response.code === 200) {",
+                  "  const body = pm.response.json();",
+                  "  pm.test(\"workspace has center and appointments\", () => {",
+                  "    pm.expect(body).to.have.property(\"center\");",
+                  "    pm.expect(body).to.have.property(\"appointments\");",
+                  "  });",
+                  "  const service = (body.services || [])[0];",
+                  "  if (service?.id) pm.collectionVariables.set(\"serviceId\", String(service.id));",
+                  "  if (service?.specialtyId) pm.collectionVariables.set(\"specialtyId\", String(service.specialtyId));",
+                  "  const therapist = (body.therapists || [])[0];",
+                  "  if (therapist?.id) pm.collectionVariables.set(\"therapistId\", String(therapist.id));",
+                  "  if (therapist?.specialtyId) pm.collectionVariables.set(\"specialtyId\", String(therapist.specialtyId));",
+                  "  const patient = (body.patients || [])[0];",
+                  "  if (patient?.id) { pm.collectionVariables.set(\"patientId\", String(patient.id)); pm.collectionVariables.set(\"patientName\", String(patient.name || \"Demo Patient\")); }",
+                  "  const appointment = (body.appointments || [])[0];",
+                  "  if (appointment?.id) pm.collectionVariables.set(\"appointmentId\", String(appointment.id));",
+                  "  const review = (body.reviews || [])[0];",
+                  "  if (review?.id) pm.collectionVariables.set(\"reviewId\", String(review.id));",
+                  "  const conversation = (body.conversations || [])[0];",
+                  "  if (conversation?.id) pm.collectionVariables.set(\"conversationId\", String(conversation.id));",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Update center information",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/center/workspace/center",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "center",
+                "workspace",
+                "center"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nameEnglish\": \"{{centerName}}\",\n  \"city\": \"Gaza\",\n  \"address\": \"Al Rasheed Street, Gaza\",\n  \"addressArabic\": \"شارع الرشيد، غزة\",\n  \"websiteUrl\": \"https://example.com\",\n  \"latitude\": 31.5017,\n  \"longitude\": 34.4668,\n  \"locationConfirmed\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const expected = [200,400];",
+                  "pm.test(pm.info.requestName + \": status is \" + expected.join(\" / \"), function () {",
+                  "  pm.expect(expected).to.include(pm.response.code);",
+                  "});",
+                  "if (pm.response.code !== 204 && (pm.response.headers.get(\"Content-Type\") || \"\").includes(\"application/json\")) {",
+                  "  pm.test(pm.info.requestName + \": body is valid JSON\", function () {",
+                  "    pm.expect(function () { pm.response.json(); }).to.not.throw();",
+                  "  });",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Update working hours",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/center/workspace/hours",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "center",
+                "workspace",
+                "hours"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"weekStart\": \"08:00\",\n  \"weekEnd\": \"17:00\",\n  \"fridayStart\": \"08:00\",\n  \"fridayEnd\": \"13:00\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const expected = [200,400];",
+                  "pm.test(pm.info.requestName + \": status is \" + expected.join(\" / \"), function () {",
+                  "  pm.expect(expected).to.include(pm.response.code);",
+                  "});",
+                  "if (pm.response.code !== 204 && (pm.response.headers.get(\"Content-Type\") || \"\").includes(\"application/json\")) {",
+                  "  pm.test(pm.info.requestName + \": body is valid JSON\", function () {",
+                  "    pm.expect(function () { pm.response.json(); }).to.not.throw();",
+                  "  });",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Add gallery image",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/center/workspace/images",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "center",
+                "workspace",
+                "images"
+              ]
+            },
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "file",
+                  "type": "file",
+                  "src": [],
+                  "description": "Select a real image file to exercise the upload."
+                },
+                {
+                  "key": "imageUrl",
+                  "value": "https://example.com/physioguide-postman.jpg",
+                  "type": "text"
+                },
+                {
+                  "key": "isPrimary",
+                  "value": "false",
+                  "type": "text"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const expected = [200,201,400,415];",
+                  "pm.test(pm.info.requestName + \": status is \" + expected.join(\" / \"), function () {",
+                  "  pm.expect(expected).to.include(pm.response.code);",
+                  "});",
+                  "if (pm.response.code !== 204 && (pm.response.headers.get(\"Content-Type\") || \"\").includes(\"application/json\")) {",
+                  "  pm.test(pm.info.requestName + \": body is valid JSON\", function () {",
+                  "    pm.expect(function () { pm.response.json(); }).to.not.throw();",
+                  "  });",
+                  "}",
+                  "if (pm.response.code >= 200 && pm.response.code < 300) {",
+                  "  try {",
+                  "    const body = pm.response.json();",
+                  "    if (body.url) pm.collectionVariables.set(\"uploadedImageUrl\", String(body.url));",
+                  "    if (body.id || body.imageId) pm.collectionVariables.set(\"imageId\", String(body.id || body.imageId));",
+                  "  } catch (error) {}",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Delete gallery image by id",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/center/workspace/images/{{imageId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "center",
+                "workspace",
+                "images",
+                "{{imageId}}"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const expected = [200,204,404];",
+                  "pm.test(pm.info.requestName + \": status is \" + expected.join(\" / \"), function () {",
+                  "  pm.expect(expected).to.include(pm.response.code);",
+                  "});",
+                  "if (pm.response.code !== 204 && (pm.response.headers.get(\"Content-Type\") || \"\").includes(\"application/json\")) {",
+                  "  pm.test(pm.info.requestName + \": body is valid JSON\", function () {",
+                  "    pm.expect(function () { pm.response.json(); }).to.not.throw();",
+                  "  });",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Delete gallery image by URL",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/center/workspace/images?url={{uploadedImageUrl}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "center",
+                "workspace",
+                "images"
+              ],
+              "query": [
+                {
+                  "key": "url",
+                  "value": "{{uploadedImageUrl}}"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const expected = [200,204,400,404];",
+                  "pm.test(pm.info.requestName + \": status is \" + expected.join(\" / \"), function () {",
+                  "  pm.expect(expected).to.include(pm.response.code);",
+                  "});",
+                  "if (pm.response.code !== 204 && (pm.response.headers.get(\"Content-Type\") || \"\").includes(\"application/json\")) {",
+                  "  pm.test(pm.info.requestName + \": body is valid JSON\", function () {",
+                  "    pm.expect(function () { pm.response.json(); }).to.not.throw();",
+                  "  });",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Create service",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/center/workspace/services",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "center",
+                "workspace",
+                "services"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nameEnglish\": \"Postman Assessment\",\n  \"nameArabic\": \"تقييم بوستمان\",\n  \"descriptionEnglish\": \"Created by the Postman collection.\",\n  \"descriptionArabic\": \"تم الإنشاء بواسطة مجموعة بوستمان.\",\n  \"price\": 120,\n  \"durationMinutes\": 45,\n  \"specialtyId\": \"{{specialtyId}}\",\n  \"imageUrl\": \"\",\n  \"isActive\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const expected = [201,400,404];",
+                  "pm.test(pm.info.requestName + \": status is \" + expected.join(\" / \"), function () {",
+                  "  pm.expect(expected).to.include(pm.response.code);",
+                  "});",
+                  "if (pm.response.code !== 204 && (pm.response.headers.get(\"Content-Type\") || \"\").includes(\"application/json\")) {",
+                  "  pm.test(pm.info.requestName + \": body is valid JSON\", function () {",
+                  "    pm.expect(function () { pm.response.json(); }).to.not.throw();",
+                  "  });",
+                  "}",
+                  "if (pm.response.code >= 200 && pm.response.code < 300) {",
+                  "  try {",
+                  "    const body = pm.response.json();",
+                  "    const value = body.id || body.serviceId;",
+                  "    if (value !== undefined && value !== null && value !== \"\") pm.collectionVariables.set(\"createdServiceId\", String(value));",
+                  "  } catch (error) { /* no JSON body */ }",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Update service",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/center/workspace/services/{{createdServiceId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "center",
+                "workspace",
+                "services",
+                "{{createdServiceId}}"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nameEnglish\": \"Postman Assessment Updated\",\n  \"nameArabic\": \"تقييم بوستمان محدث\",\n  \"price\": 130,\n  \"durationMinutes\": 45,\n  \"specialtyId\": \"{{specialtyId}}\",\n  \"isActive\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const expected = [200,400,404];",
+                  "pm.test(pm.info.requestName + \": status is \" + expected.join(\" / \"), function () {",
+                  "  pm.expect(expected).to.include(pm.response.code);",
+                  "});",
+                  "if (pm.response.code !== 204 && (pm.response.headers.get(\"Content-Type\") || \"\").includes(\"application/json\")) {",
+                  "  pm.test(pm.info.requestName + \": body is valid JSON\", function () {",
+                  "    pm.expect(function () { pm.response.json(); }).to.not.throw();",
+                  "  });",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Update therapist",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/center/workspace/therapists/{{therapistId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "center",
+                "workspace",
+                "therapists",
+                "{{therapistId}}"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"fullName\": \"Postman Therapist\",\n  \"specialtyId\": \"{{specialtyId}}\",\n  \"bio\": \"Updated by the Postman collection.\",\n  \"yearsOfExperience\": 4,\n  \"qualifications\": \"BSc Physiotherapy\",\n  \"languages\": \"Arabic, English\",\n  \"isAvailable\": true,\n  \"isActive\": true,\n  \"serviceIds\": [\n    \"{{serviceId}}\"\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const expected = [200,400,404];",
+                  "pm.test(pm.info.requestName + \": status is \" + expected.join(\" / \"), function () {",
+                  "  pm.expect(expected).to.include(pm.response.code);",
+                  "});",
+                  "if (pm.response.code !== 204 && (pm.response.headers.get(\"Content-Type\") || \"\").includes(\"application/json\")) {",
+                  "  pm.test(pm.info.requestName + \": body is valid JSON\", function () {",
+                  "    pm.expect(function () { pm.response.json(); }).to.not.throw();",
+                  "  });",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Create patient account",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/center/workspace/patients",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "center",
+                "workspace",
+                "patients"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"fullName\": \"Postman Center Patient\",\n  \"email\": \"patient+{{$guid}}@example.com\",\n  \"phoneNumber\": \"+970599555666\",\n  \"password\": \"Patient123!\",\n  \"gender\": \"male\",\n  \"dateOfBirth\": \"1990-01-15\",\n  \"city\": \"Gaza\",\n  \"isActive\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const expected = [201,400,409];",
+                  "pm.test(pm.info.requestName + \": status is \" + expected.join(\" / \"), function () {",
+                  "  pm.expect(expected).to.include(pm.response.code);",
+                  "});",
+                  "if (pm.response.code !== 204 && (pm.response.headers.get(\"Content-Type\") || \"\").includes(\"application/json\")) {",
+                  "  pm.test(pm.info.requestName + \": body is valid JSON\", function () {",
+                  "    pm.expect(function () { pm.response.json(); }).to.not.throw();",
+                  "  });",
+                  "}",
+                  "if (pm.response.code >= 200 && pm.response.code < 300) {",
+                  "  try {",
+                  "    const body = pm.response.json();",
+                  "    const value = body.id || body.patientId;",
+                  "    if (value !== undefined && value !== null && value !== \"\") pm.collectionVariables.set(\"createdPatientId\", String(value));",
+                  "  } catch (error) { /* no JSON body */ }",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Update patient",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/center/workspace/patients/{{createdPatientId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "center",
+                "workspace",
+                "patients",
+                "{{createdPatientId}}"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"fullName\": \"Postman Center Patient Updated\",\n  \"email\": \"patient+{{$guid}}@example.com\",\n  \"phoneNumber\": \"+970599555666\",\n  \"gender\": \"male\",\n  \"dateOfBirth\": \"1990-01-15\",\n  \"city\": \"Gaza\",\n  \"isActive\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const expected = [200,400,404];",
+                  "pm.test(pm.info.requestName + \": status is \" + expected.join(\" / \"), function () {",
+                  "  pm.expect(expected).to.include(pm.response.code);",
+                  "});",
+                  "if (pm.response.code !== 204 && (pm.response.headers.get(\"Content-Type\") || \"\").includes(\"application/json\")) {",
+                  "  pm.test(pm.info.requestName + \": body is valid JSON\", function () {",
+                  "    pm.expect(function () { pm.response.json(); }).to.not.throw();",
+                  "  });",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Add patient note",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/center/workspace/patients/{{createdPatientId}}/notes",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "center",
+                "workspace",
+                "patients",
+                "{{createdPatientId}}",
+                "notes"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"text\": \"Note created by the Postman collection.\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const expected = [200,201,400,404];",
+                  "pm.test(pm.info.requestName + \": status is \" + expected.join(\" / \"), function () {",
+                  "  pm.expect(expected).to.include(pm.response.code);",
+                  "});",
+                  "if (pm.response.code !== 204 && (pm.response.headers.get(\"Content-Type\") || \"\").includes(\"application/json\")) {",
+                  "  pm.test(pm.info.requestName + \": body is valid JSON\", function () {",
+                  "    pm.expect(function () { pm.response.json(); }).to.not.throw();",
+                  "  });",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Change appointment status",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/center/workspace/appointments/{{appointmentId}}/status",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "center",
+                "workspace",
+                "appointments",
+                "{{appointmentId}}",
+                "status"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"approved\",\n  \"reason\": \"\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const expected = [200,400,404];",
+                  "pm.test(pm.info.requestName + \": status is \" + expected.join(\" / \"), function () {",
+                  "  pm.expect(expected).to.include(pm.response.code);",
+                  "});",
+                  "if (pm.response.code !== 204 && (pm.response.headers.get(\"Content-Type\") || \"\").includes(\"application/json\")) {",
+                  "  pm.test(pm.info.requestName + \": body is valid JSON\", function () {",
+                  "    pm.expect(function () { pm.response.json(); }).to.not.throw();",
+                  "  });",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Reply to review",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/center/workspace/reviews/{{reviewId}}/reply",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "center",
+                "workspace",
+                "reviews",
+                "{{reviewId}}",
+                "reply"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"reply\": \"Thank you for your feedback. — Postman test\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const expected = [200,400,404];",
+                  "pm.test(pm.info.requestName + \": status is \" + expected.join(\" / \"), function () {",
+                  "  pm.expect(expected).to.include(pm.response.code);",
+                  "});",
+                  "if (pm.response.code !== 204 && (pm.response.headers.get(\"Content-Type\") || \"\").includes(\"application/json\")) {",
+                  "  pm.test(pm.info.requestName + \": body is valid JSON\", function () {",
+                  "    pm.expect(function () { pm.response.json(); }).to.not.throw();",
+                  "  });",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get notification preferences",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/center/workspace/preferences",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "center",
+                "workspace",
+                "preferences"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const expected = [200];",
+                  "pm.test(pm.info.requestName + \": status is \" + expected.join(\" / \"), function () {",
+                  "  pm.expect(expected).to.include(pm.response.code);",
+                  "});",
+                  "if (pm.response.code !== 204 && (pm.response.headers.get(\"Content-Type\") || \"\").includes(\"application/json\")) {",
+                  "  pm.test(pm.info.requestName + \": body is valid JSON\", function () {",
+                  "    pm.expect(function () { pm.response.json(); }).to.not.throw();",
+                  "  });",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Update notification preferences",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/center/workspace/preferences",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "center",
+                "workspace",
+                "preferences"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"emailEnabled\": true,\n  \"inAppEnabled\": true,\n  \"appointmentReminders\": true,\n  \"marketing\": false,\n  \"language\": \"en\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const expected = [200,400];",
+                  "pm.test(pm.info.requestName + \": status is \" + expected.join(\" / \"), function () {",
+                  "  pm.expect(expected).to.include(pm.response.code);",
+                  "});",
+                  "if (pm.response.code !== 204 && (pm.response.headers.get(\"Content-Type\") || \"\").includes(\"application/json\")) {",
+                  "  pm.test(pm.info.requestName + \": body is valid JSON\", function () {",
+                  "    pm.expect(function () { pm.response.json(); }).to.not.throw();",
+                  "  });",
+                  "}"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Schedules",
+      "description": "Therapist weekly windows. The delete targets only the window created by this run (fallback id 999999).",
+      "auth": {
+        "type": "bearer",
+        "bearer": [
+          {
+            "key": "token",
+            "value": "{{centerToken}}",
+            "type": "string"
+          }
+        ]
+      },
+      "item": [
+        {
+          "name": "Get therapist schedule",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/Schedules/therapists/{{therapistId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "Schedules",
+                "therapists",
+                "{{therapistId}}"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const expected = [200,404];",
+                  "pm.test(pm.info.requestName + \": status is \" + expected.join(\" / \"), function () {",
+                  "  pm.expect(expected).to.include(pm.response.code);",
+                  "});",
+                  "if (pm.response.code !== 204 && (pm.response.headers.get(\"Content-Type\") || \"\").includes(\"application/json\")) {",
+                  "  pm.test(pm.info.requestName + \": body is valid JSON\", function () {",
+                  "    pm.expect(function () { pm.response.json(); }).to.not.throw();",
+                  "  });",
+                  "}",
+                  "if (pm.response.code === 200) {",
+                  "  const body = pm.response.json();",
+                  "  const windows = Array.isArray(body) ? body : (body.windows || []);",
+                  "  if (windows[0]?.id || windows[0]?.scheduleId) pm.collectionVariables.set(\"existingScheduleId\", String(windows[0].id || windows[0].scheduleId));",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Create schedule window",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/Schedules/therapists/{{therapistId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "Schedules",
+                "therapists",
+                "{{therapistId}}"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"dayOfWeek\": 1,\n  \"startTime\": \"08:00:00\",\n  \"endTime\": \"12:00:00\",\n  \"isAvailable\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const expected = [200,201,400,404,409];",
+                  "pm.test(pm.info.requestName + \": status is \" + expected.join(\" / \"), function () {",
+                  "  pm.expect(expected).to.include(pm.response.code);",
+                  "});",
+                  "if (pm.response.code !== 204 && (pm.response.headers.get(\"Content-Type\") || \"\").includes(\"application/json\")) {",
+                  "  pm.test(pm.info.requestName + \": body is valid JSON\", function () {",
+                  "    pm.expect(function () { pm.response.json(); }).to.not.throw();",
+                  "  });",
+                  "}",
+                  "if (pm.response.code >= 200 && pm.response.code < 300) {",
+                  "  try {",
+                  "    const body = pm.response.json();",
+                  "    const value = body.id || body.scheduleId;",
+                  "    if (value !== undefined && value !== null && value !== \"\") pm.collectionVariables.set(\"newScheduleId\", String(value));",
+                  "  } catch (error) { /* no JSON body */ }",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Update schedule window",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/Schedules/therapists/{{therapistId}}/{{newScheduleId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "Schedules",
+                "therapists",
+                "{{therapistId}}",
+                "{{newScheduleId}}"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"dayOfWeek\": 1,\n  \"startTime\": \"09:00:00\",\n  \"endTime\": \"12:00:00\",\n  \"isAvailable\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const expected = [200,400,404,409];",
+                  "pm.test(pm.info.requestName + \": status is \" + expected.join(\" / \"), function () {",
+                  "  pm.expect(expected).to.include(pm.response.code);",
+                  "});",
+                  "if (pm.response.code !== 204 && (pm.response.headers.get(\"Content-Type\") || \"\").includes(\"application/json\")) {",
+                  "  pm.test(pm.info.requestName + \": body is valid JSON\", function () {",
+                  "    pm.expect(function () { pm.response.json(); }).to.not.throw();",
+                  "  });",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Delete schedule window",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/Schedules/therapists/{{therapistId}}/{{newScheduleId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "Schedules",
+                "therapists",
+                "{{therapistId}}",
+                "{{newScheduleId}}"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const expected = [200,204,400,404,409];",
+                  "pm.test(pm.info.requestName + \": status is \" + expected.join(\" / \"), function () {",
+                  "  pm.expect(expected).to.include(pm.response.code);",
+                  "});",
+                  "if (pm.response.code !== 204 && (pm.response.headers.get(\"Content-Type\") || \"\").includes(\"application/json\")) {",
+                  "  pm.test(pm.info.requestName + \": body is valid JSON\", function () {",
+                  "    pm.expect(function () { pm.response.json(); }).to.not.throw();",
+                  "  });",
+                  "}"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Therapist",
+      "description": "Therapist self-service profile.",
+      "auth": {
+        "type": "bearer",
+        "bearer": [
+          {
+            "key": "token",
+            "value": "{{therapistToken}}",
+            "type": "string"
+          }
+        ]
+      },
+      "item": [
+        {
+          "name": "Get my therapist profile",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/therapist/profile",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "therapist",
+                "profile"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const expected = [200,403,404];",
+                  "pm.test(pm.info.requestName + \": status is \" + expected.join(\" / \"), function () {",
+                  "  pm.expect(expected).to.include(pm.response.code);",
+                  "});",
+                  "if (pm.response.code !== 204 && (pm.response.headers.get(\"Content-Type\") || \"\").includes(\"application/json\")) {",
+                  "  pm.test(pm.info.requestName + \": body is valid JSON\", function () {",
+                  "    pm.expect(function () { pm.response.json(); }).to.not.throw();",
+                  "  });",
+                  "}",
+                  "if (pm.response.code === 200) {",
+                  "  const body = pm.response.json();",
+                  "  if (body.specialtyId) pm.collectionVariables.set(\"specialtyId\", String(body.specialtyId));",
+                  "  if (body.therapistId) pm.collectionVariables.set(\"therapistId\", String(body.therapistId));",
+                  "  if (body.fullName) pm.collectionVariables.set(\"therapistName\", String(body.fullName));",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Update my therapist profile",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/therapist/profile",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "therapist",
+                "profile"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"fullName\": \"{{therapistName}}\",\n  \"specialtyId\": \"{{specialtyId}}\",\n  \"fullNameAr\": \"معالج تجريبي\",\n  \"bio\": \"Updated by the Postman collection.\",\n  \"bioAr\": \"تم التحديث بواسطة مجموعة بوستمان.\",\n  \"yearsOfExperience\": 5,\n  \"qualifications\": \"BSc Physiotherapy\",\n  \"languages\": \"Arabic, English\",\n  \"isAvailable\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const expected = [200,400,403];",
+                  "pm.test(pm.info.requestName + \": status is \" + expected.join(\" / \"), function () {",
+                  "  pm.expect(expected).to.include(pm.response.code);",
+                  "});",
+                  "if (pm.response.code !== 204 && (pm.response.headers.get(\"Content-Type\") || \"\").includes(\"application/json\")) {",
+                  "  pm.test(pm.info.requestName + \": body is valid JSON\", function () {",
+                  "    pm.expect(function () { pm.response.json(); }).to.not.throw();",
+                  "  });",
+                  "}"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "TherapistWorkspace",
+      "description": "Therapist workspace, image upload and notification preferences.",
+      "auth": {
+        "type": "bearer",
+        "bearer": [
+          {
+            "key": "token",
+            "value": "{{therapistToken}}",
+            "type": "string"
+          }
+        ]
+      },
+      "item": [
+        {
+          "name": "Get therapist workspace",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/therapist/workspace",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "therapist",
+                "workspace"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const expected = [200,403];",
+                  "pm.test(pm.info.requestName + \": status is \" + expected.join(\" / \"), function () {",
+                  "  pm.expect(expected).to.include(pm.response.code);",
+                  "});",
+                  "if (pm.response.code !== 204 && (pm.response.headers.get(\"Content-Type\") || \"\").includes(\"application/json\")) {",
+                  "  pm.test(pm.info.requestName + \": body is valid JSON\", function () {",
+                  "    pm.expect(function () { pm.response.json(); }).to.not.throw();",
+                  "  });",
+                  "}",
+                  "if (pm.response.code === 200) {",
+                  "  const body = pm.response.json();",
+                  "  const appointment = (body.appointments || [])[0];",
+                  "  if (appointment?.id) pm.collectionVariables.set(\"appointmentId\", String(appointment.id));",
+                  "  const patient = (body.patients || [])[0];",
+                  "  if (patient?.id) pm.collectionVariables.set(\"patientId\", String(patient.id));",
+                  "  const conversation = (body.conversations || [])[0];",
+                  "  if (conversation?.id) pm.collectionVariables.set(\"conversationId\", String(conversation.id));",
+                  "  const notification = (body.notifications || [])[0];",
+                  "  if (notification?.id) pm.collectionVariables.set(\"notificationId\", String(notification.id));",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Upload therapist image",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/therapist/workspace/images",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "therapist",
+                "workspace",
+                "images"
+              ]
+            },
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "file",
+                  "type": "file",
+                  "src": [],
+                  "description": "Select a real image file to exercise the upload."
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const expected = [200,400,413,415];",
+                  "pm.test(pm.info.requestName + \": status is \" + expected.join(\" / \"), function () {",
+                  "  pm.expect(expected).to.include(pm.response.code);",
+                  "});",
+                  "if (pm.response.code !== 204 && (pm.response.headers.get(\"Content-Type\") || \"\").includes(\"application/json\")) {",
+                  "  pm.test(pm.info.requestName + \": body is valid JSON\", function () {",
+                  "    pm.expect(function () { pm.response.json(); }).to.not.throw();",
+                  "  });",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "description": "Select an image file in the form-data tab before sending."
+        },
+        {
+          "name": "Get therapist notification preferences",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/therapist/workspace/preferences",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "therapist",
+                "workspace",
+                "preferences"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const expected = [200,403];",
+                  "pm.test(pm.info.requestName + \": status is \" + expected.join(\" / \"), function () {",
+                  "  pm.expect(expected).to.include(pm.response.code);",
+                  "});",
+                  "if (pm.response.code !== 204 && (pm.response.headers.get(\"Content-Type\") || \"\").includes(\"application/json\")) {",
+                  "  pm.test(pm.info.requestName + \": body is valid JSON\", function () {",
+                  "    pm.expect(function () { pm.response.json(); }).to.not.throw();",
+                  "  });",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Update therapist notification preferences",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/therapist/workspace/preferences",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "therapist",
+                "workspace",
+                "preferences"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"emailEnabled\": true,\n  \"inAppEnabled\": true,\n  \"appointmentReminders\": true,\n  \"marketing\": false,\n  \"language\": \"en\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const expected = [200,400,403];",
+                  "pm.test(pm.info.requestName + \": status is \" + expected.join(\" / \"), function () {",
+                  "  pm.expect(expected).to.include(pm.response.code);",
+                  "});",
+                  "if (pm.response.code !== 204 && (pm.response.headers.get(\"Content-Type\") || \"\").includes(\"application/json\")) {",
+                  "  pm.test(pm.info.requestName + \": body is valid JSON\", function () {",
+                  "    pm.expect(function () { pm.response.json(); }).to.not.throw();",
+                  "  });",
+                  "}"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Conversations",
+      "description": "Patient↔therapist messaging. Participant-scoped: a non-participant gets 404.",
+      "auth": {
+        "type": "bearer",
+        "bearer": [
+          {
+            "key": "token",
+            "value": "{{patientToken}}",
+            "type": "string"
+          }
+        ]
+      },
+      "item": [
+        {
+          "name": "Open conversation",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/conversations",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "conversations"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"therapistId\": \"{{therapistId}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const expected = [200,201,400,404];",
+                  "pm.test(pm.info.requestName + \": status is \" + expected.join(\" / \"), function () {",
+                  "  pm.expect(expected).to.include(pm.response.code);",
+                  "});",
+                  "if (pm.response.code !== 204 && (pm.response.headers.get(\"Content-Type\") || \"\").includes(\"application/json\")) {",
+                  "  pm.test(pm.info.requestName + \": body is valid JSON\", function () {",
+                  "    pm.expect(function () { pm.response.json(); }).to.not.throw();",
+                  "  });",
+                  "}",
+                  "if (pm.response.code >= 200 && pm.response.code < 300) {",
+                  "  try {",
+                  "    const body = pm.response.json();",
+                  "    const value = body.id || body.conversationId;",
+                  "    if (value !== undefined && value !== null && value !== \"\") pm.collectionVariables.set(\"conversationId\", String(value));",
+                  "  } catch (error) { /* no JSON body */ }",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get messages",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/conversations/{{conversationId}}/messages?since=",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "conversations",
+                "{{conversationId}}",
+                "messages"
+              ],
+              "query": [
+                {
+                  "key": "since",
+                  "value": ""
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const expected = [200,404];",
+                  "pm.test(pm.info.requestName + \": status is \" + expected.join(\" / \"), function () {",
+                  "  pm.expect(expected).to.include(pm.response.code);",
+                  "});",
+                  "if (pm.response.code !== 204 && (pm.response.headers.get(\"Content-Type\") || \"\").includes(\"application/json\")) {",
+                  "  pm.test(pm.info.requestName + \": body is valid JSON\", function () {",
+                  "    pm.expect(function () { pm.response.json(); }).to.not.throw();",
+                  "  });",
+                  "}",
+                  "if (pm.response.code === 200) {",
+                  "  const body = pm.response.json();",
+                  "  const rows = Array.isArray(body) ? body : (body.messages || []);",
+                  "  if (rows[0]?.id) pm.collectionVariables.set(\"messageId\", String(rows[0].id));",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Send message",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/conversations/{{conversationId}}/messages",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "conversations",
+                "{{conversationId}}",
+                "messages"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"text\": \"Hello from the Postman collection.\",\n  \"attachment\": \"\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const expected = [201,400,404];",
+                  "pm.test(pm.info.requestName + \": status is \" + expected.join(\" / \"), function () {",
+                  "  pm.expect(expected).to.include(pm.response.code);",
+                  "});",
+                  "if (pm.response.code !== 204 && (pm.response.headers.get(\"Content-Type\") || \"\").includes(\"application/json\")) {",
+                  "  pm.test(pm.info.requestName + \": body is valid JSON\", function () {",
+                  "    pm.expect(function () { pm.response.json(); }).to.not.throw();",
+                  "  });",
+                  "}",
+                  "if (pm.response.code >= 200 && pm.response.code < 300) {",
+                  "  try {",
+                  "    const body = pm.response.json();",
+                  "    const value = body.id || body.messageId;",
+                  "    if (value !== undefined && value !== null && value !== \"\") pm.collectionVariables.set(\"messageId\", String(value));",
+                  "  } catch (error) { /* no JSON body */ }",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Mark messages read",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/conversations/{{conversationId}}/read",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "conversations",
+                "{{conversationId}}",
+                "read"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"messageIds\": [\n    \"{{messageId}}\"\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const expected = [200,400,404];",
+                  "pm.test(pm.info.requestName + \": status is \" + expected.join(\" / \"), function () {",
+                  "  pm.expect(expected).to.include(pm.response.code);",
+                  "});",
+                  "if (pm.response.code !== 204 && (pm.response.headers.get(\"Content-Type\") || \"\").includes(\"application/json\")) {",
+                  "  pm.test(pm.info.requestName + \": body is valid JSON\", function () {",
+                  "    pm.expect(function () { pm.response.json(); }).to.not.throw();",
+                  "  });",
+                  "}"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Notifications",
+      "description": "Marks a single notification read. There is no bulk endpoint; the client loops.",
+      "auth": {
+        "type": "bearer",
+        "bearer": [
+          {
+            "key": "token",
+            "value": "{{patientToken}}",
+            "type": "string"
+          }
+        ]
+      },
+      "item": [
+        {
+          "name": "Mark notification read",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/notifications/read",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "notifications",
+                "read"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"id\": \"{{notificationId}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const expected = [200,404];",
+                  "pm.test(pm.info.requestName + \": status is \" + expected.join(\" / \"), function () {",
+                  "  pm.expect(expected).to.include(pm.response.code);",
+                  "});",
+                  "if (pm.response.code !== 204 && (pm.response.headers.get(\"Content-Type\") || \"\").includes(\"application/json\")) {",
+                  "  pm.test(pm.info.requestName + \": body is valid JSON\", function () {",
+                  "    pm.expect(function () { pm.response.json(); }).to.not.throw();",
+                  "  });",
+                  "}"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Assessment",
+      "description": "Five-question pain assessment using approved option codes. Unknown JSON members are rejected.",
+      "auth": {
+        "type": "bearer",
+        "bearer": [
+          {
+            "key": "token",
+            "value": "{{patientToken}}",
+            "type": "string"
+          }
+        ]
+      },
+      "item": [
+        {
+          "name": "Submit assessment",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/Assessment",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "Assessment"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"painLocation\": \"LowerBack\",\n  \"painSeverity\": 7,\n  \"duration\": \"OneToFourWeeks\",\n  \"painDescriptions\": [\n    \"Aching\",\n    \"Stiffness\"\n  ],\n  \"previousInjurySurgery\": \"None\",\n  \"otherDescription\": null\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const expected = [200,201,400];",
+                  "pm.test(pm.info.requestName + \": status is \" + expected.join(\" / \"), function () {",
+                  "  pm.expect(expected).to.include(pm.response.code);",
+                  "});",
+                  "if (pm.response.code !== 204 && (pm.response.headers.get(\"Content-Type\") || \"\").includes(\"application/json\")) {",
+                  "  pm.test(pm.info.requestName + \": body is valid JSON\", function () {",
+                  "    pm.expect(function () { pm.response.json(); }).to.not.throw();",
+                  "  });",
+                  "}",
+                  "if (pm.response.code >= 200 && pm.response.code < 300) {",
+                  "  try {",
+                  "    const body = pm.response.json();",
+                  "    const value = body.id || body.assessmentId;",
+                  "    if (value !== undefined && value !== null && value !== \"\") pm.collectionVariables.set(\"assessmentId\", String(value));",
+                  "  } catch (error) { /* no JSON body */ }",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get assessment history",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/Assessment/history",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "Assessment",
+                "history"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const expected = [200];",
+                  "pm.test(pm.info.requestName + \": status is \" + expected.join(\" / \"), function () {",
+                  "  pm.expect(expected).to.include(pm.response.code);",
+                  "});",
+                  "if (pm.response.code !== 204 && (pm.response.headers.get(\"Content-Type\") || \"\").includes(\"application/json\")) {",
+                  "  pm.test(pm.info.requestName + \": body is valid JSON\", function () {",
+                  "    pm.expect(function () { pm.response.json(); }).to.not.throw();",
+                  "  });",
+                  "}",
+                  "if (pm.response.code === 200) {",
+                  "  const body = pm.response.json();",
+                  "  const rows = Array.isArray(body) ? body : (body.assessments || []);",
+                  "  if (rows[0]?.id) pm.collectionVariables.set(\"assessmentId\", String(rows[0].id));",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get assessment by id",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/Assessment/{{assessmentId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "Assessment",
+                "{{assessmentId}}"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const expected = [200,404];",
+                  "pm.test(pm.info.requestName + \": status is \" + expected.join(\" / \"), function () {",
+                  "  pm.expect(expected).to.include(pm.response.code);",
+                  "});",
+                  "if (pm.response.code !== 204 && (pm.response.headers.get(\"Content-Type\") || \"\").includes(\"application/json\")) {",
+                  "  pm.test(pm.info.requestName + \": body is valid JSON\", function () {",
+                  "    pm.expect(function () { pm.response.json(); }).to.not.throw();",
+                  "  });",
+                  "}"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Admin (center applications)",
+      "description": "Center application review. The review approves the throwaway center registered by the Auth folder.",
+      "auth": {
+        "type": "bearer",
+        "bearer": [
+          {
+            "key": "token",
+            "value": "{{adminToken}}",
+            "type": "string"
+          }
+        ]
+      },
+      "item": [
+        {
+          "name": "List center applications",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/center-applications?status=pending",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "admin",
+                "center-applications"
+              ],
+              "query": [
+                {
+                  "key": "status",
+                  "value": "pending"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const expected = [200];",
+                  "pm.test(pm.info.requestName + \": status is \" + expected.join(\" / \"), function () {",
+                  "  pm.expect(expected).to.include(pm.response.code);",
+                  "});",
+                  "if (pm.response.code !== 204 && (pm.response.headers.get(\"Content-Type\") || \"\").includes(\"application/json\")) {",
+                  "  pm.test(pm.info.requestName + \": body is valid JSON\", function () {",
+                  "    pm.expect(function () { pm.response.json(); }).to.not.throw();",
+                  "  });",
+                  "}",
+                  "if (pm.response.code === 200) {",
+                  "  const body = pm.response.json();",
+                  "  const rows = Array.isArray(body) ? body : (body.applications || body.items || []);",
+                  "  pm.test(\"applications are a list\", () => pm.expect(rows).to.be.an(\"array\"));",
+                  "  if (rows[0]?.id) pm.collectionVariables.set(\"centerApplicationId\", String(rows[0].id));",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get center application",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/center-applications/{{centerApplicationId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "admin",
+                "center-applications",
+                "{{centerApplicationId}}"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const expected = [200,404];",
+                  "pm.test(pm.info.requestName + \": status is \" + expected.join(\" / \"), function () {",
+                  "  pm.expect(expected).to.include(pm.response.code);",
+                  "});",
+                  "if (pm.response.code !== 204 && (pm.response.headers.get(\"Content-Type\") || \"\").includes(\"application/json\")) {",
+                  "  pm.test(pm.info.requestName + \": body is valid JSON\", function () {",
+                  "    pm.expect(function () { pm.response.json(); }).to.not.throw();",
+                  "  });",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Review center application",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/center-applications/{{centerApplicationId}}/review",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "admin",
+                "center-applications",
+                "{{centerApplicationId}}",
+                "review"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"decision\": \"rejected\",\n  \"reason\": \"Postman test decision.\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const expected = [200,400,404];",
+                  "pm.test(pm.info.requestName + \": status is \" + expected.join(\" / \"), function () {",
+                  "  pm.expect(expected).to.include(pm.response.code);",
+                  "});",
+                  "if (pm.response.code !== 204 && (pm.response.headers.get(\"Content-Type\") || \"\").includes(\"application/json\")) {",
+                  "  pm.test(pm.info.requestName + \": body is valid JSON\", function () {",
+                  "    pm.expect(function () { pm.response.json(); }).to.not.throw();",
+                  "  });",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "description": "Rejects so no real center becomes bookable; requires a reason."
+        }
+      ]
+    },
+    {
+      "name": "AdminManagement",
+      "description": "Admin dashboard, activity, centers, patients, therapists, appointments, reviews and settings. Destructive requests only target records created during this run (fallback ids give 404 otherwise).",
+      "auth": {
+        "type": "bearer",
+        "bearer": [
+          {
+            "key": "token",
+            "value": "{{adminToken}}",
+            "type": "string"
+          }
+        ]
+      },
+      "item": [
+        {
+          "name": "Dashboard",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/dashboard?year={{currentYear}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "admin",
+                "dashboard"
+              ],
+              "query": [
+                {
+                  "key": "year",
+                  "value": "{{currentYear}}"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const expected = [200];",
+                  "pm.test(pm.info.requestName + \": status is \" + expected.join(\" / \"), function () {",
+                  "  pm.expect(expected).to.include(pm.response.code);",
+                  "});",
+                  "if (pm.response.code !== 204 && (pm.response.headers.get(\"Content-Type\") || \"\").includes(\"application/json\")) {",
+                  "  pm.test(pm.info.requestName + \": body is valid JSON\", function () {",
+                  "    pm.expect(function () { pm.response.json(); }).to.not.throw();",
+                  "  });",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Activity feed",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/activity?page=1&pageSize=20",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "admin",
+                "activity"
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "pageSize",
+                  "value": "20"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const expected = [200];",
+                  "pm.test(pm.info.requestName + \": status is \" + expected.join(\" / \"), function () {",
+                  "  pm.expect(expected).to.include(pm.response.code);",
+                  "});",
+                  "if (pm.response.code !== 204 && (pm.response.headers.get(\"Content-Type\") || \"\").includes(\"application/json\")) {",
+                  "  pm.test(pm.info.requestName + \": body is valid JSON\", function () {",
+                  "    pm.expect(function () { pm.response.json(); }).to.not.throw();",
+                  "  });",
+                  "}",
+                  "if (pm.response.code === 200) {",
+                  "  const body = pm.response.json();",
+                  "  pm.test(\"activity has items\", () => pm.expect(body).to.be.an(\"object\"));",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Admin notifications",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/notifications",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "admin",
+                "notifications"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const expected = [200];",
+                  "pm.test(pm.info.requestName + \": status is \" + expected.join(\" / \"), function () {",
+                  "  pm.expect(expected).to.include(pm.response.code);",
+                  "});",
+                  "if (pm.response.code !== 204 && (pm.response.headers.get(\"Content-Type\") || \"\").includes(\"application/json\")) {",
+                  "  pm.test(pm.info.requestName + \": body is valid JSON\", function () {",
+                  "    pm.expect(function () { pm.response.json(); }).to.not.throw();",
+                  "  });",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "List centers",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/centers?status=&search=&city=&specialty=&page=1&pageSize=20",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "admin",
+                "centers"
+              ],
+              "query": [
+                {
+                  "key": "status",
+                  "value": ""
+                },
+                {
+                  "key": "search",
+                  "value": ""
+                },
+                {
+                  "key": "city",
+                  "value": ""
+                },
+                {
+                  "key": "specialty",
+                  "value": ""
+                },
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "pageSize",
+                  "value": "20"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const expected = [200];",
+                  "pm.test(pm.info.requestName + \": status is \" + expected.join(\" / \"), function () {",
+                  "  pm.expect(expected).to.include(pm.response.code);",
+                  "});",
+                  "if (pm.response.code !== 204 && (pm.response.headers.get(\"Content-Type\") || \"\").includes(\"application/json\")) {",
+                  "  pm.test(pm.info.requestName + \": body is valid JSON\", function () {",
+                  "    pm.expect(function () { pm.response.json(); }).to.not.throw();",
+                  "  });",
+                  "}",
+                  "if (pm.response.code === 200) {",
+                  "  const body = pm.response.json();",
+                  "  const rows = Array.isArray(body) ? body : (body.items || body.centers || []);",
+                  "  if (rows[0]?.id) pm.collectionVariables.set(\"centerId\", String(rows[0].id));",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get center detail",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/centers/{{centerId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "admin",
+                "centers",
+                "{{centerId}}"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const expected = [200,404];",
+                  "pm.test(pm.info.requestName + \": status is \" + expected.join(\" / \"), function () {",
+                  "  pm.expect(expected).to.include(pm.response.code);",
+                  "});",
+                  "if (pm.response.code !== 204 && (pm.response.headers.get(\"Content-Type\") || \"\").includes(\"application/json\")) {",
+                  "  pm.test(pm.info.requestName + \": body is valid JSON\", function () {",
+                  "    pm.expect(function () { pm.response.json(); }).to.not.throw();",
+                  "  });",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Update center status",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/centers/{{centerId}}/status",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "admin",
+                "centers",
+                "{{centerId}}",
+                "status"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"approved\",\n  \"reason\": \"\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const expected = [200,400,404];",
+                  "pm.test(pm.info.requestName + \": status is \" + expected.join(\" / \"), function () {",
+                  "  pm.expect(expected).to.include(pm.response.code);",
+                  "});",
+                  "if (pm.response.code !== 204 && (pm.response.headers.get(\"Content-Type\") || \"\").includes(\"application/json\")) {",
+                  "  pm.test(pm.info.requestName + \": body is valid JSON\", function () {",
+                  "    pm.expect(function () { pm.response.json(); }).to.not.throw();",
+                  "  });",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Update center",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/centers/{{centerId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "admin",
+                "centers",
+                "{{centerId}}"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"city\": \"Gaza\",\n  \"address\": \"Al Rasheed Street, Gaza\",\n  \"websiteUrl\": \"https://example.com\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const expected = [200,400,404];",
+                  "pm.test(pm.info.requestName + \": status is \" + expected.join(\" / \"), function () {",
+                  "  pm.expect(expected).to.include(pm.response.code);",
+                  "});",
+                  "if (pm.response.code !== 204 && (pm.response.headers.get(\"Content-Type\") || \"\").includes(\"application/json\")) {",
+                  "  pm.test(pm.info.requestName + \": body is valid JSON\", function () {",
+                  "    pm.expect(function () { pm.response.json(); }).to.not.throw();",
+                  "  });",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Delete center (throwaway)",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/centers/{{registeredCenterId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "admin",
+                "centers",
+                "{{registeredCenterId}}"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const expected = [200,204,404,409];",
+                  "pm.test(pm.info.requestName + \": status is \" + expected.join(\" / \"), function () {",
+                  "  pm.expect(expected).to.include(pm.response.code);",
+                  "});",
+                  "if (pm.response.code !== 204 && (pm.response.headers.get(\"Content-Type\") || \"\").includes(\"application/json\")) {",
+                  "  pm.test(pm.info.requestName + \": body is valid JSON\", function () {",
+                  "    pm.expect(function () { pm.response.json(); }).to.not.throw();",
+                  "  });",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "description": "Deletes the pending center created by Auth/Register center. 409 center_has_therapists is a legitimate response."
+        },
+        {
+          "name": "List patients",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/patients?search=&isActive=&city=&sort=&page=1&pageSize=20",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "admin",
+                "patients"
+              ],
+              "query": [
+                {
+                  "key": "search",
+                  "value": ""
+                },
+                {
+                  "key": "isActive",
+                  "value": ""
+                },
+                {
+                  "key": "city",
+                  "value": ""
+                },
+                {
+                  "key": "sort",
+                  "value": ""
+                },
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "pageSize",
+                  "value": "20"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const expected = [200];",
+                  "pm.test(pm.info.requestName + \": status is \" + expected.join(\" / \"), function () {",
+                  "  pm.expect(expected).to.include(pm.response.code);",
+                  "});",
+                  "if (pm.response.code !== 204 && (pm.response.headers.get(\"Content-Type\") || \"\").includes(\"application/json\")) {",
+                  "  pm.test(pm.info.requestName + \": body is valid JSON\", function () {",
+                  "    pm.expect(function () { pm.response.json(); }).to.not.throw();",
+                  "  });",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Update patient status",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/patients/{{patientId}}/status",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "admin",
+                "patients",
+                "{{patientId}}",
+                "status"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"active\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const expected = [200,400,404];",
+                  "pm.test(pm.info.requestName + \": status is \" + expected.join(\" / \"), function () {",
+                  "  pm.expect(expected).to.include(pm.response.code);",
+                  "});",
+                  "if (pm.response.code !== 204 && (pm.response.headers.get(\"Content-Type\") || \"\").includes(\"application/json\")) {",
+                  "  pm.test(pm.info.requestName + \": body is valid JSON\", function () {",
+                  "    pm.expect(function () { pm.response.json(); }).to.not.throw();",
+                  "  });",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "description": "Only ever reactivates, so running the collection cannot lock the demo patient out."
+        },
+        {
+          "name": "Get patient detail",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/patients/{{patientId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "admin",
+                "patients",
+                "{{patientId}}"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const expected = [200,404];",
+                  "pm.test(pm.info.requestName + \": status is \" + expected.join(\" / \"), function () {",
+                  "  pm.expect(expected).to.include(pm.response.code);",
+                  "});",
+                  "if (pm.response.code !== 204 && (pm.response.headers.get(\"Content-Type\") || \"\").includes(\"application/json\")) {",
+                  "  pm.test(pm.info.requestName + \": body is valid JSON\", function () {",
+                  "    pm.expect(function () { pm.response.json(); }).to.not.throw();",
+                  "  });",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Update patient",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/patients/{{patientId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "admin",
+                "patients",
+                "{{patientId}}"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"fullName\": \"{{patientName}}\",\n  \"phoneNumber\": \"+970599123456\",\n  \"city\": \"Gaza\",\n  \"gender\": \"female\",\n  \"dateOfBirth\": \"1995-04-12\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const expected = [200,400,404];",
+                  "pm.test(pm.info.requestName + \": status is \" + expected.join(\" / \"), function () {",
+                  "  pm.expect(expected).to.include(pm.response.code);",
+                  "});",
+                  "if (pm.response.code !== 204 && (pm.response.headers.get(\"Content-Type\") || \"\").includes(\"application/json\")) {",
+                  "  pm.test(pm.info.requestName + \": body is valid JSON\", function () {",
+                  "    pm.expect(function () { pm.response.json(); }).to.not.throw();",
+                  "  });",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Delete patient (throwaway)",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/patients/{{createdPatientId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "admin",
+                "patients",
+                "{{createdPatientId}}"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const expected = [200,204,404];",
+                  "pm.test(pm.info.requestName + \": status is \" + expected.join(\" / \"), function () {",
+                  "  pm.expect(expected).to.include(pm.response.code);",
+                  "});",
+                  "if (pm.response.code !== 204 && (pm.response.headers.get(\"Content-Type\") || \"\").includes(\"application/json\")) {",
+                  "  pm.test(pm.info.requestName + \": body is valid JSON\", function () {",
+                  "    pm.expect(function () { pm.response.json(); }).to.not.throw();",
+                  "  });",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "description": "Deletes the patient created by CenterWorkspace/Create patient account."
+        },
+        {
+          "name": "List physiotherapists",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/physiotherapists?search=&centerId=&specialtyId=&isActive=&page=1&pageSize=20",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "admin",
+                "physiotherapists"
+              ],
+              "query": [
+                {
+                  "key": "search",
+                  "value": ""
+                },
+                {
+                  "key": "centerId",
+                  "value": ""
+                },
+                {
+                  "key": "specialtyId",
+                  "value": ""
+                },
+                {
+                  "key": "isActive",
+                  "value": ""
+                },
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "pageSize",
+                  "value": "20"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const expected = [200];",
+                  "pm.test(pm.info.requestName + \": status is \" + expected.join(\" / \"), function () {",
+                  "  pm.expect(expected).to.include(pm.response.code);",
+                  "});",
+                  "if (pm.response.code !== 204 && (pm.response.headers.get(\"Content-Type\") || \"\").includes(\"application/json\")) {",
+                  "  pm.test(pm.info.requestName + \": body is valid JSON\", function () {",
+                  "    pm.expect(function () { pm.response.json(); }).to.not.throw();",
+                  "  });",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Create physiotherapist",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/physiotherapists",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "admin",
+                "physiotherapists"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"fullName\": \"Postman Admin Therapist\",\n  \"email\": \"admin.therapist+{{$guid}}@example.com\",\n  \"phoneNumber\": \"+970599888999\",\n  \"password\": \"Therapist123!\",\n  \"centerId\": \"{{centerId}}\",\n  \"specialtyId\": \"{{specialtyId}}\",\n  \"fullNameAr\": \"معالج إداري تجريبي\",\n  \"bio\": \"Created by the Postman collection.\",\n  \"yearsOfExperience\": 2,\n  \"qualifications\": \"BSc Physiotherapy\",\n  \"languages\": \"Arabic, English\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const expected = [201,400,404,409];",
+                  "pm.test(pm.info.requestName + \": status is \" + expected.join(\" / \"), function () {",
+                  "  pm.expect(expected).to.include(pm.response.code);",
+                  "});",
+                  "if (pm.response.code !== 204 && (pm.response.headers.get(\"Content-Type\") || \"\").includes(\"application/json\")) {",
+                  "  pm.test(pm.info.requestName + \": body is valid JSON\", function () {",
+                  "    pm.expect(function () { pm.response.json(); }).to.not.throw();",
+                  "  });",
+                  "}",
+                  "if (pm.response.code >= 200 && pm.response.code < 300) {",
+                  "  try {",
+                  "    const body = pm.response.json();",
+                  "    const value = body.id || body.therapistId;",
+                  "    if (value !== undefined && value !== null && value !== \"\") pm.collectionVariables.set(\"adminCreatedTherapistId\", String(value));",
+                  "  } catch (error) { /* no JSON body */ }",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Update physiotherapist status",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/physiotherapists/{{adminCreatedTherapistId}}/status",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "admin",
+                "physiotherapists",
+                "{{adminCreatedTherapistId}}",
+                "status"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"active\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const expected = [200,400,404];",
+                  "pm.test(pm.info.requestName + \": status is \" + expected.join(\" / \"), function () {",
+                  "  pm.expect(expected).to.include(pm.response.code);",
+                  "});",
+                  "if (pm.response.code !== 204 && (pm.response.headers.get(\"Content-Type\") || \"\").includes(\"application/json\")) {",
+                  "  pm.test(pm.info.requestName + \": body is valid JSON\", function () {",
+                  "    pm.expect(function () { pm.response.json(); }).to.not.throw();",
+                  "  });",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get physiotherapist detail",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/physiotherapists/{{adminCreatedTherapistId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "admin",
+                "physiotherapists",
+                "{{adminCreatedTherapistId}}"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const expected = [200,404];",
+                  "pm.test(pm.info.requestName + \": status is \" + expected.join(\" / \"), function () {",
+                  "  pm.expect(expected).to.include(pm.response.code);",
+                  "});",
+                  "if (pm.response.code !== 204 && (pm.response.headers.get(\"Content-Type\") || \"\").includes(\"application/json\")) {",
+                  "  pm.test(pm.info.requestName + \": body is valid JSON\", function () {",
+                  "    pm.expect(function () { pm.response.json(); }).to.not.throw();",
+                  "  });",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Update physiotherapist",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/physiotherapists/{{adminCreatedTherapistId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "admin",
+                "physiotherapists",
+                "{{adminCreatedTherapistId}}"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"fullName\": \"Postman Admin Therapist Updated\",\n  \"phoneNumber\": \"+970599888999\",\n  \"centerId\": \"{{centerId}}\",\n  \"specialtyId\": \"{{specialtyId}}\",\n  \"yearsOfExperience\": 3,\n  \"bio\": \"Updated by the Postman collection.\",\n  \"isAvailable\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const expected = [200,400,404];",
+                  "pm.test(pm.info.requestName + \": status is \" + expected.join(\" / \"), function () {",
+                  "  pm.expect(expected).to.include(pm.response.code);",
+                  "});",
+                  "if (pm.response.code !== 204 && (pm.response.headers.get(\"Content-Type\") || \"\").includes(\"application/json\")) {",
+                  "  pm.test(pm.info.requestName + \": body is valid JSON\", function () {",
+                  "    pm.expect(function () { pm.response.json(); }).to.not.throw();",
+                  "  });",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Delete physiotherapist (throwaway)",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/physiotherapists/{{adminCreatedTherapistId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "admin",
+                "physiotherapists",
+                "{{adminCreatedTherapistId}}"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const expected = [200,204,404];",
+                  "pm.test(pm.info.requestName + \": status is \" + expected.join(\" / \"), function () {",
+                  "  pm.expect(expected).to.include(pm.response.code);",
+                  "});",
+                  "if (pm.response.code !== 204 && (pm.response.headers.get(\"Content-Type\") || \"\").includes(\"application/json\")) {",
+                  "  pm.test(pm.info.requestName + \": body is valid JSON\", function () {",
+                  "    pm.expect(function () { pm.response.json(); }).to.not.throw();",
+                  "  });",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "List appointments",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/appointments?status=&centerId=&therapistId=&patientId=&search=&date=&page=1&pageSize=20",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "admin",
+                "appointments"
+              ],
+              "query": [
+                {
+                  "key": "status",
+                  "value": ""
+                },
+                {
+                  "key": "centerId",
+                  "value": ""
+                },
+                {
+                  "key": "therapistId",
+                  "value": ""
+                },
+                {
+                  "key": "patientId",
+                  "value": ""
+                },
+                {
+                  "key": "search",
+                  "value": ""
+                },
+                {
+                  "key": "date",
+                  "value": ""
+                },
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "pageSize",
+                  "value": "20"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const expected = [200];",
+                  "pm.test(pm.info.requestName + \": status is \" + expected.join(\" / \"), function () {",
+                  "  pm.expect(expected).to.include(pm.response.code);",
+                  "});",
+                  "if (pm.response.code !== 204 && (pm.response.headers.get(\"Content-Type\") || \"\").includes(\"application/json\")) {",
+                  "  pm.test(pm.info.requestName + \": body is valid JSON\", function () {",
+                  "    pm.expect(function () { pm.response.json(); }).to.not.throw();",
+                  "  });",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Appointment form options",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/appointments/options",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "admin",
+                "appointments",
+                "options"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const expected = [200];",
+                  "pm.test(pm.info.requestName + \": status is \" + expected.join(\" / \"), function () {",
+                  "  pm.expect(expected).to.include(pm.response.code);",
+                  "});",
+                  "if (pm.response.code !== 204 && (pm.response.headers.get(\"Content-Type\") || \"\").includes(\"application/json\")) {",
+                  "  pm.test(pm.info.requestName + \": body is valid JSON\", function () {",
+                  "    pm.expect(function () { pm.response.json(); }).to.not.throw();",
+                  "  });",
+                  "}",
+                  "if (pm.response.code === 200) {",
+                  "  const body = pm.response.json();",
+                  "  pm.test(\"options include centers and therapists\", () => {",
+                  "    pm.expect(body).to.have.property(\"centers\");",
+                  "    pm.expect(body).to.have.property(\"therapists\");",
+                  "  });",
+                  "  const patient = (body.patients || [])[0];",
+                  "  if (patient?.id) pm.collectionVariables.set(\"patientId\", String(patient.id));",
+                  "  const service = (body.services || [])[0];",
+                  "  if (service?.id) pm.collectionVariables.set(\"serviceId\", String(service.id));",
+                  "  const therapist = (body.therapists || [])[0];",
+                  "  if (therapist?.id) pm.collectionVariables.set(\"therapistId\", String(therapist.id));",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Create appointment",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/appointments",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "admin",
+                "appointments"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"patientId\": \"{{patientId}}\",\n  \"centerId\": \"{{centerId}}\",\n  \"therapistId\": \"{{therapistId}}\",\n  \"serviceId\": \"{{serviceId}}\",\n  \"startDateTime\": \"{{futureStart}}\",\n  \"endDateTime\": \"{{futureEnd}}\",\n  \"patientNotes\": \"Created by the Postman collection.\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const expected = [201,400,404];",
+                  "pm.test(pm.info.requestName + \": status is \" + expected.join(\" / \"), function () {",
+                  "  pm.expect(expected).to.include(pm.response.code);",
+                  "});",
+                  "if (pm.response.code !== 204 && (pm.response.headers.get(\"Content-Type\") || \"\").includes(\"application/json\")) {",
+                  "  pm.test(pm.info.requestName + \": body is valid JSON\", function () {",
+                  "    pm.expect(function () { pm.response.json(); }).to.not.throw();",
+                  "  });",
+                  "}",
+                  "if (pm.response.code >= 200 && pm.response.code < 300) {",
+                  "  try {",
+                  "    const body = pm.response.json();",
+                  "    const value = body.id || body.appointmentId;",
+                  "    if (value !== undefined && value !== null && value !== \"\") pm.collectionVariables.set(\"adminAppointmentId\", String(value));",
+                  "  } catch (error) { /* no JSON body */ }",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Update appointment",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/appointments/{{adminAppointmentId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "admin",
+                "appointments",
+                "{{adminAppointmentId}}"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"confirmed\",\n  \"patientNotes\": \"Updated by the Postman collection.\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const expected = [200,400,404];",
+                  "pm.test(pm.info.requestName + \": status is \" + expected.join(\" / \"), function () {",
+                  "  pm.expect(expected).to.include(pm.response.code);",
+                  "});",
+                  "if (pm.response.code !== 204 && (pm.response.headers.get(\"Content-Type\") || \"\").includes(\"application/json\")) {",
+                  "  pm.test(pm.info.requestName + \": body is valid JSON\", function () {",
+                  "    pm.expect(function () { pm.response.json(); }).to.not.throw();",
+                  "  });",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Delete appointment (throwaway)",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/appointments/{{adminAppointmentId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "admin",
+                "appointments",
+                "{{adminAppointmentId}}"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const expected = [200,204,404];",
+                  "pm.test(pm.info.requestName + \": status is \" + expected.join(\" / \"), function () {",
+                  "  pm.expect(expected).to.include(pm.response.code);",
+                  "});",
+                  "if (pm.response.code !== 204 && (pm.response.headers.get(\"Content-Type\") || \"\").includes(\"application/json\")) {",
+                  "  pm.test(pm.info.requestName + \": body is valid JSON\", function () {",
+                  "    pm.expect(function () { pm.response.json(); }).to.not.throw();",
+                  "  });",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "List reviews",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/reviews?visibility=all&page=1&pageSize=20",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "admin",
+                "reviews"
+              ],
+              "query": [
+                {
+                  "key": "visibility",
+                  "value": "all"
+                },
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "pageSize",
+                  "value": "20"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const expected = [200];",
+                  "pm.test(pm.info.requestName + \": status is \" + expected.join(\" / \"), function () {",
+                  "  pm.expect(expected).to.include(pm.response.code);",
+                  "});",
+                  "if (pm.response.code !== 204 && (pm.response.headers.get(\"Content-Type\") || \"\").includes(\"application/json\")) {",
+                  "  pm.test(pm.info.requestName + \": body is valid JSON\", function () {",
+                  "    pm.expect(function () { pm.response.json(); }).to.not.throw();",
+                  "  });",
+                  "}",
+                  "if (pm.response.code === 200) {",
+                  "  const body = pm.response.json();",
+                  "  const rows = Array.isArray(body) ? body : (body.items || body.reviews || []);",
+                  "  if (rows[0]?.id) pm.collectionVariables.set(\"reviewId\", String(rows[0].id));",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Moderate review (show)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/reviews/{{reviewId}}/moderate",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "admin",
+                "reviews",
+                "{{reviewId}}",
+                "moderate"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"action\": \"show\",\n  \"reason\": \"Postman visibility check.\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const expected = [200,400,404];",
+                  "pm.test(pm.info.requestName + \": status is \" + expected.join(\" / \"), function () {",
+                  "  pm.expect(expected).to.include(pm.response.code);",
+                  "});",
+                  "if (pm.response.code !== 204 && (pm.response.headers.get(\"Content-Type\") || \"\").includes(\"application/json\")) {",
+                  "  pm.test(pm.info.requestName + \": body is valid JSON\", function () {",
+                  "    pm.expect(function () { pm.response.json(); }).to.not.throw();",
+                  "  });",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "description": "Non-destructive: show keeps the review row."
+        },
+        {
+          "name": "Get settings",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/settings",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "admin",
+                "settings"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const expected = [200];",
+                  "pm.test(pm.info.requestName + \": status is \" + expected.join(\" / \"), function () {",
+                  "  pm.expect(expected).to.include(pm.response.code);",
+                  "});",
+                  "if (pm.response.code !== 204 && (pm.response.headers.get(\"Content-Type\") || \"\").includes(\"application/json\")) {",
+                  "  pm.test(pm.info.requestName + \": body is valid JSON\", function () {",
+                  "    pm.expect(function () { pm.response.json(); }).to.not.throw();",
+                  "  });",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Save settings",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/settings",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "admin",
+                "settings"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"notifications\": {\n    \"emailEnabled\": true,\n    \"inAppEnabled\": true,\n    \"appointmentReminders\": true,\n    \"marketing\": false\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const expected = [200,400];",
+                  "pm.test(pm.info.requestName + \": status is \" + expected.join(\" / \"), function () {",
+                  "  pm.expect(expected).to.include(pm.response.code);",
+                  "});",
+                  "if (pm.response.code !== 204 && (pm.response.headers.get(\"Content-Type\") || \"\").includes(\"application/json\")) {",
+                  "  pm.test(pm.info.requestName + \": body is valid JSON\", function () {",
+                  "    pm.expect(function () { pm.response.json(); }).to.not.throw();",
+                  "  });",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Upload settings image",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/settings/image",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "admin",
+                "settings",
+                "image"
+              ]
+            },
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "file",
+                  "type": "file",
+                  "src": [],
+                  "description": "Select a real image file to exercise the upload."
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const expected = [200,400,413,415];",
+                  "pm.test(pm.info.requestName + \": status is \" + expected.join(\" / \"), function () {",
+                  "  pm.expect(expected).to.include(pm.response.code);",
+                  "});",
+                  "if (pm.response.code !== 204 && (pm.response.headers.get(\"Content-Type\") || \"\").includes(\"application/json\")) {",
+                  "  pm.test(pm.info.requestName + \": body is valid JSON\", function () {",
+                  "    pm.expect(function () { pm.response.json(); }).to.not.throw();",
+                  "  });",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "description": "Select an image file in the form-data tab before sending."
+        }
+      ]
+    },
+    {
+      "name": "Service",
+      "description": "Minimal API health endpoint (not a controller). Useful to confirm baseUrl before running the rest.",
+      "auth": {
+        "type": "noauth"
+      },
+      "item": [
+        {
+          "name": "API is running",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": []
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const expected = [200];",
+                  "pm.test(pm.info.requestName + \": status is \" + expected.join(\" / \"), function () {",
+                  "  pm.expect(expected).to.include(pm.response.code);",
+                  "});",
+                  "if (pm.response.code !== 204 && (pm.response.headers.get(\"Content-Type\") || \"\").includes(\"application/json\")) {",
+                  "  pm.test(pm.info.requestName + \": body is valid JSON\", function () {",
+                  "    pm.expect(function () { pm.response.json(); }).to.not.throw();",
+                  "  });",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "description": "Returns the plain-text “Physio Guide API is running!” message."
+        }
+      ]
+    }
+  ]
+}
