@@ -2,6 +2,7 @@ using System.Security.Cryptography;
 
 namespace graduatio_project.Services;
 
+// Verified Google subject and email carried between the two sign-up calls.
 public sealed record GoogleRegistrationIdentity(string Subject, string Email);
 
 // Bounded, short-lived, single-use bearer tickets, also bound to the initiating tab.
@@ -11,8 +12,10 @@ public sealed class GoogleRegistrationTicketStore
     private readonly object _gate = new();
     private readonly Dictionary<string, Entry> _entries = new(StringComparer.Ordinal);
     private readonly TimeProvider _clock;
+    // Stores the pending registration tickets in memory, timed by the injected clock.
     public GoogleRegistrationTicketStore(TimeProvider clock) => _clock = clock;
 
+    // Creates a single-use ticket bound to the tab's verifier.
     public (string Ticket, DateTimeOffset ExpiresAt) Issue(GoogleRegistrationIdentity identity, string verifier)
     {
         lock (_gate)
@@ -28,6 +31,7 @@ public sealed class GoogleRegistrationTicketStore
         }
     }
 
+    // Takes the ticket once and returns its identity, or null when it is gone.
     public GoogleRegistrationIdentity? TryTake(string ticket, string verifier)
     {
         lock (_gate)
@@ -40,5 +44,6 @@ public sealed class GoogleRegistrationTicketStore
             return entry.Identity;
         }
     }
+    // One pending registration ticket.
     private sealed record Entry(GoogleRegistrationIdentity Identity, string Binding, DateTimeOffset ExpiresAt);
 }

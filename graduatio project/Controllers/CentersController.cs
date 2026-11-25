@@ -21,6 +21,7 @@ namespace graduatio_project.Controllers
     {
         private readonly ApplicationDbContext _context;
 
+        // Wires the database used by the public discovery endpoints.
         public CentersController(ApplicationDbContext context)
         {
             _context = context;

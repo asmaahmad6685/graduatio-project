@@ -74,6 +74,7 @@ namespace graduatio_project.Controllers
             _ => role.ToLowerInvariant()
         };
 
+        // POST api/auth/register/patient: creates a patient account once the email is confirmed free.
         [EnableRateLimiting("auth-register")]
         [HttpPost("register/patient")]
         public async Task<IActionResult> RegisterPatient(PatientRegisterDto dto)
@@ -484,6 +485,7 @@ namespace graduatio_project.Controllers
         [EnableRateLimiting("auth-forgot")]
         [HttpPost("forgot-password")]
         [NonAction] // Password recovery is disabled; this method is not an HTTP action.
+        // Issues a password-reset token for an existing account.
         public async Task<IActionResult> ForgotPassword(ForgotPasswordDto dto)
         {
             //  نبحث عن المستخدم في جدول Users باستخدام الإيميل
@@ -534,6 +536,7 @@ namespace graduatio_project.Controllers
             // ملاحظة: هذا الـ API يستخدم الـ Reset Token لتعيين كلمة مرور جديدة
             [AllowAnonymous]
             [NonAction] // Password recovery is disabled; this method is not an HTTP action.
+            // Replaces the password when the reset token matches its stored hash.
             public async Task<IActionResult> ResetPassword(ResetPasswordDto dto)
             {
                 // ملاحظة: نعمل Hash للـ Token التي أرسلها المستخدم

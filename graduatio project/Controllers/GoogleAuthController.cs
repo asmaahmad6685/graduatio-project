@@ -31,6 +31,7 @@ public sealed class GoogleAuthController : ControllerBase
     private readonly ILogger<GoogleAuthController> _logger;
     private readonly NotificationService _notifications;
 
+    // Wires the Google validator, the challenge and ticket stores and the token services.
     public GoogleAuthController(ApplicationDbContext db, IGoogleTokenValidator validator,
         GoogleNonceStore nonces, GoogleRegistrationTicketStore tickets, TokenService tokens,
         RefreshTokenService refreshTokenService,
@@ -53,6 +54,7 @@ public sealed class GoogleAuthController : ControllerBase
         _ => role.ToLowerInvariant()
     };
 
+    // POST api/Auth/google/challenge: issues a server challenge and nonce for one Google attempt.
     [HttpPost("challenge")]
     public Task<IActionResult> Challenge(GoogleChallengeDto dto) => ExecuteAsync(() =>
     {
@@ -63,6 +65,7 @@ public sealed class GoogleAuthController : ControllerBase
         }));
     });
 
+    // POST api/Auth/google/sign-in: exchanges a verified Google token for a session, or a registration ticket.
     [HttpPost("sign-in")]
     public Task<IActionResult> SignIn(GoogleSignInDto dto, CancellationToken ct) => ExecuteAsync(async () =>
     {
@@ -132,6 +135,7 @@ public sealed class GoogleAuthController : ControllerBase
         });
     });
 
+    // POST api/Auth/google/register/patient: completes a patient sign-up that started with Google.
     [HttpPost("register/patient")]
     public Task<IActionResult> RegisterPatient(GooglePatientRegisterDto dto, CancellationToken ct) => ExecuteAsync(async () =>
     {
@@ -159,6 +163,7 @@ public sealed class GoogleAuthController : ControllerBase
         });
     });
 
+    // POST api/Auth/google/register/center: completes a center sign-up that started with Google.
     [HttpPost("register/center")]
     public Task<IActionResult> RegisterCenter(GoogleCenterRegisterDto dto, CancellationToken ct) => ExecuteAsync(async () =>
     {
@@ -189,29 +194,37 @@ public sealed class GoogleAuthController : ControllerBase
         });
     });
 
+    // True when an account already uses this email, compared case-insensitively.
     private Task<bool> EmailExistsAsync(string email, CancellationToken ct)
     {
         var normalized = email.ToUpperInvariant();
         return _db.Users.AnyAsync(u => u.Email.ToUpper() == normalized, ct);
     }
 
+    // True when the Google subject, or its email, already has an account.
     private async Task<bool> IdentityExistsAsync(GoogleRegistrationIdentity identity, CancellationToken ct) =>
         await _db.ExternalLogins.AnyAsync(e => e.Provider == "Google" && e.ProviderSubject == identity.Subject, ct)
         || await EmailExistsAsync(identity.Email, ct);
 
+    // User row for a Google sign-up, with no local password.
     private static User NewUser(GoogleRegistrationIdentity identity, string phone, string role) => new()
     {
         Email = identity.Email, PhoneNumber = phone.Trim(), PasswordHash = null, Role = role, IsActive = true
     };
+    // External login that ties the Google subject to the new user.
     private static ExternalLogin NewLogin(GoogleRegistrationIdentity identity, User user) => new()
     {
         User = user, Provider = "Google", ProviderSubject = identity.Subject
     };
 
+    // 401 response for a missing or already used registration ticket.
     private ObjectResult InvalidTicket() => Failure(401, "invalid_registration_ticket", "Registration ticket is invalid, expired, or used. Start Google sign-in again.");
+    // 409 response when the Google identity maps to an existing account.
     private ObjectResult AccountConflict() => Failure(409, "account_conflict", "An account already exists. Sign in using its existing method; accounts are not automatically linked.");
+    // Error response carrying the code and message the UI translates.
     private ObjectResult Failure(int status, string code, string message) => StatusCode(status, new { message, code });
 
+    // Runs the action only when Google sign-in is configured, and maps its failures.
     private async Task<IActionResult> ExecuteAsync(Func<Task<IActionResult>> action)
     {
         if (!_options.Enabled || !_options.HasValidWebClientId())

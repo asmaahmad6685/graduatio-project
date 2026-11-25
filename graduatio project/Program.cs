@@ -18,6 +18,7 @@ namespace graduatio_project
 {
     public class Program
     {
+        // Builds the web host, registers the services, seeds the database and maps the controllers and hub.
         public static void Main(string[] args)
         {
             var builder = WebApplication.CreateBuilder(args);

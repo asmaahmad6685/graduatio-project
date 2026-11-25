@@ -28,6 +28,7 @@ namespace graduatio_project.Controllers
         private readonly PasswordService _passwordService;
         private readonly NotificationService _notifications;
 
+        // Wires the database, file storage and services the center workspace calls.
         public CenterWorkspaceController(
             ApplicationDbContext context,
             IWebHostEnvironment environment,
@@ -40,6 +41,7 @@ namespace graduatio_project.Controllers
             _notifications = notifications;
         }
 
+        // GET api/center/workspace: profile, staff, patients, services and appointments of the center.
         [HttpGet("workspace")]
         public async Task<IActionResult> GetWorkspace()
         {
@@ -281,6 +283,7 @@ namespace graduatio_project.Controllers
             });
         }
 
+        // PUT api/center/workspace/center: saves the editable center profile.
         [HttpPut("workspace/center")]
         public async Task<IActionResult> UpdateCenter(UpdateCenterInfoDto dto)
         {
@@ -357,6 +360,7 @@ namespace graduatio_project.Controllers
             });
         }
 
+        // PUT api/center/workspace/hours: replaces the weekly working hours of the center.
         [HttpPut("workspace/hours")]
         public async Task<IActionResult> UpdateHours(UpdateWorkingHoursDto dto)
         {
@@ -432,6 +436,7 @@ namespace graduatio_project.Controllers
             });
         }
 
+        // POST api/center/workspace/images: adds a logo or gallery image to the center.
         [HttpPost("workspace/images")]
         [RequestSizeLimit(ImageStorage.MaxBytes + 1024 * 1024)]
         public async Task<IActionResult> AddImage([FromForm] AddCenterImageDto dto, IFormFile? file)
@@ -502,6 +507,7 @@ namespace graduatio_project.Controllers
             });
         }
 
+        // DELETE api/center/workspace/images/{imageId}: deletes one center image.
         [HttpDelete("workspace/images/{imageId:int}")]
         public async Task<IActionResult> DeleteImage(int imageId)
         {
@@ -556,6 +562,7 @@ namespace graduatio_project.Controllers
             return Ok(new { removed = images.Count });
         }
 
+        // POST api/center/workspace/services: creates a service offered by the center.
         [HttpPost("workspace/services")]
         public async Task<IActionResult> AddService(SaveServiceDto dto)
         {
@@ -599,6 +606,7 @@ namespace graduatio_project.Controllers
             });
         }
 
+        // PUT api/center/workspace/services/{serviceId}: updates one service, its image and its price.
         [HttpPut("workspace/services/{serviceId:int}")]
         public async Task<IActionResult> UpdateService(int serviceId, SaveServiceDto dto)
         {
@@ -651,6 +659,7 @@ namespace graduatio_project.Controllers
             });
         }
 
+        // PUT api/center/workspace/therapists/{therapistId}: updates one therapist's professional fields.
         [HttpPut("workspace/therapists/{therapistId:int}")]
         public async Task<IActionResult> UpdateTherapist(int therapistId, UpdateTherapistDto dto)
         {
@@ -937,6 +946,7 @@ namespace graduatio_project.Controllers
             });
         }
 
+        // POST api/center/workspace/patients/{patientId}/notes: appends a note to a patient.
         [HttpPost("workspace/patients/{patientId:int}/notes")]
         public async Task<IActionResult> AddPatientNote(int patientId, AddPatientNoteDto dto)
         {
@@ -975,6 +985,7 @@ namespace graduatio_project.Controllers
             });
         }
 
+        // PUT api/center/workspace/appointments/{appointmentId}/status: accepts, completes or cancels an appointment.
         [HttpPut("workspace/appointments/{appointmentId:int}/status")]
         public async Task<IActionResult> UpdateAppointmentStatus(
             int appointmentId, UpdateAppointmentStatusDto dto)
@@ -1040,6 +1051,7 @@ namespace graduatio_project.Controllers
                 loaded.appointments, loaded.centers, loaded.therapists, loaded.services)[0]);
         }
 
+        // POST api/center/workspace/reviews/{reviewId}/reply: stores the center's reply to a review.
         [HttpPost("workspace/reviews/{reviewId:int}/reply")]
         public async Task<IActionResult> ReplyToReview(int reviewId, ReplyToReviewDto dto)
         {
@@ -1072,6 +1084,7 @@ namespace graduatio_project.Controllers
             });
         }
 
+        // GET api/center/workspace/preferences: notification switches of the signed-in account.
         [HttpGet("workspace/preferences")]
         public async Task<IActionResult> GetPreferences()
         {
@@ -1093,6 +1106,7 @@ namespace graduatio_project.Controllers
             });
         }
 
+        // PUT api/center/workspace/preferences: saves the notification switches of the account.
         [HttpPut("workspace/preferences")]
         public async Task<IActionResult> UpdatePreferences(DTOs.Patient.UpdatePreferencesDto dto)
         {
@@ -1154,6 +1168,7 @@ namespace graduatio_project.Controllers
             return value is "male" or "female" ? value : null;
         }
 
+        // Error response when the specialty id does not exist, otherwise null.
         private async Task<IActionResult?> ValidateSpecialtyAsync(int specialtyId)
         {
             var exists = await _context.Specialties.AsNoTracking()
@@ -1167,6 +1182,7 @@ namespace graduatio_project.Controllers
                 }, "Specialty does not exist.");
         }
 
+        // Center and user behind the token, or the error response the caller should return.
         private async Task<(Center? center, User? user, IActionResult? error)> ResolveCenterAsync()
         {
             if (!CurrentUser.TryGetUserId(User, out var userId))

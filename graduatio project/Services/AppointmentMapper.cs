@@ -8,6 +8,7 @@ namespace graduatio_project.Services
     //  المعرفات تعود نصوصًا كما اتفقنا في العقد
     public static class AppointmentMapper
     {
+        // Folds appointments, centers, therapists and services into the API list shape.
         public static List<object> Build(
             IEnumerable<Appointment> appointments,
             IReadOnlyDictionary<int, Center> centers,

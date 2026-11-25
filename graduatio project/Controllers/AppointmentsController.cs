@@ -19,12 +19,14 @@ namespace graduatio_project.Controllers
         private readonly ApplicationDbContext _context;
         private readonly NotificationService _notifications;
 
+        // Wires the database and the notification service used by patient booking.
         public AppointmentsController(ApplicationDbContext context, NotificationService notifications)
         {
             _context = context;
             _notifications = notifications;
         }
 
+        // POST api/appointments/request: patient booking; checks the slot, books it and notifies the center.
         [HttpPost("request")]
         public async Task<IActionResult> RequestAppointment(AppointmentRequestDto dto)
         {

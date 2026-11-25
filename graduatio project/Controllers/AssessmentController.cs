@@ -13,11 +13,13 @@ namespace graduatio_project.Controllers
     {
         private readonly AssessmentService _service;
 
+        // Wires the assessment service that scores and stores submissions.
         public AssessmentController(AssessmentService service)
         {
             _service = service;
         }
 
+        // POST api/assessment: scores a submitted pain assessment and stores it for the patient.
         [HttpPost]
         public async Task<IActionResult> Submit(AssessmentSubmissionDto submission, CancellationToken cancellationToken)
         {
@@ -46,6 +48,7 @@ namespace graduatio_project.Controllers
             }
         }
 
+        // GET api/assessment/history: saved assessments of the patient, newest first.
         [HttpGet("history")]
         public async Task<IActionResult> GetHistory(CancellationToken cancellationToken)
         {
@@ -58,6 +61,7 @@ namespace graduatio_project.Controllers
             return Ok(await _service.GetHistoryAsync(patientId!.Value, cancellationToken));
         }
 
+        // GET api/assessment/{assessmentId}: one saved assessment with its result and advice.
         [HttpGet("{assessmentId:int}")]
         public async Task<IActionResult> GetDetails(int assessmentId, CancellationToken cancellationToken)
         {
@@ -71,6 +75,7 @@ namespace graduatio_project.Controllers
             return result == null ? NotFound(new { message = "Assessment not found." }) : Ok(result);
         }
 
+        // Patient id behind the token, or the error response the caller should return.
         private async Task<(int? PatientId, IActionResult? Error)> GetPatientIdentityAsync(CancellationToken cancellationToken)
         {
             // NameIdentifier contains UserId; it is never used as PatientId.

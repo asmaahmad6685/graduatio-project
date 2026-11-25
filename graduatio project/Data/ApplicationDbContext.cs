@@ -5,6 +5,7 @@ namespace graduatio_project.Data
 {
     public class ApplicationDbContext : DbContext
     {
+        // Creates the context with the options registered in Program.cs.
         public ApplicationDbContext(DbContextOptions<ApplicationDbContext> options)
             : base(options)
         {
@@ -50,6 +51,7 @@ namespace graduatio_project.Data
 
         public DbSet<PatientNote> PatientNotes { get; set; }
     
+    // Declares the keys, indexes, relationships and delete behaviour of the model.
     protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);

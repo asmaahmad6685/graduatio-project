@@ -26,6 +26,7 @@ namespace graduatio_project.Controllers
         private readonly PasswordService _pwd;
         private readonly NotificationService _notifications;
 
+        // Wires the admin database context, password hashing and notifications.
         public AdminManagementController(
             ApplicationDbContext db,
             PasswordService pwd,
@@ -40,10 +41,13 @@ namespace graduatio_project.Controllers
         //  HELPERS
         // ─────────────────────────────────────────────────────────────
 
+        // User id of the signed-in admin, or 0 when the token carries none.
         private int CurrentUserId()
             => CurrentUser.TryGetUserId(User, out var id) ? id : 0;
 
+        // API date-time string in UTC with seconds precision.
         private static string Iso(DateTime dt) => dt.ToString("yyyy-MM-dd'T'HH:mm:ss'Z'");
+        // Same API date-time string, or null when the value is missing.
         private static string? Iso(DateTime? dt) => dt?.ToString("yyyy-MM-dd'T'HH:mm:ss'Z'");
 
         //  العمر بالسنوات في تاريخ معيّن (العمود "العمر" في قائمة المرضى)
@@ -90,6 +94,7 @@ namespace graduatio_project.Controllers
         //  1. DASHBOARD   GET /api/admin/dashboard?year=
         // ─────────────────────────────────────────────────────────────
 
+        // GET api/admin/dashboard: KPI cards, monthly series and recent activity of the chosen year.
         [HttpGet("dashboard")]
         public async Task<IActionResult> GetDashboard([FromQuery] int? year)
         {
@@ -338,6 +343,7 @@ namespace graduatio_project.Controllers
         //  Every real event from the tables, newest first, paginated.
         // ─────────────────────────────────────────────────────────────
 
+        // GET api/admin/activity: paged activity log, newest first.
         [HttpGet("activity")]
         public async Task<IActionResult> GetActivity(
             [FromQuery] int page = 1,
@@ -431,6 +437,7 @@ namespace graduatio_project.Controllers
         //  جرس شريط التنقل: إشعارات الأدمن مع تفضيلات إظهارها
         // ─────────────────────────────────────────────────────────────
 
+        // GET api/admin/notifications: unread notifications of the signed-in admin.
         [HttpGet("notifications")]
         public async Task<IActionResult> GetNotifications()
         {
@@ -454,6 +461,7 @@ namespace graduatio_project.Controllers
         //  2. CENTERS LIST   GET /api/admin/centers
         // ─────────────────────────────────────────────────────────────
 
+        // GET api/admin/centers: paged, filtered center list for the admin table.
         [HttpGet("centers")]
         public async Task<IActionResult> GetCenters(
             [FromQuery] string? status,
@@ -546,6 +554,7 @@ namespace graduatio_project.Controllers
         //  3. CENTER DETAIL   GET /api/admin/centers/{id}
         // ─────────────────────────────────────────────────────────────
 
+        // GET api/admin/centers/{id}: full admin profile with staff, services and reviews.
         [HttpGet("centers/{id:int}")]
         public async Task<IActionResult> GetCenter(int id)
         {
@@ -684,6 +693,7 @@ namespace graduatio_project.Controllers
         //  4. UPDATE CENTER STATUS   PUT /api/admin/centers/{id}/status
         // ─────────────────────────────────────────────────────────────
 
+        // PUT api/admin/centers/{id}/status: approves, rejects or suspends a center and notifies it.
         [HttpPut("centers/{id:int}/status")]
         public async Task<IActionResult> UpdateCenterStatus(int id, UpdateStatusDto dto)
         {
@@ -741,6 +751,7 @@ namespace graduatio_project.Controllers
         //  4b. EDIT CENTER   PUT /api/admin/centers/{id}
         // ─────────────────────────────────────────────────────────────
 
+        // PUT api/admin/centers/{id}: saves the admin-editable fields of a center.
         [HttpPut("centers/{id:int}")]
         public async Task<IActionResult> UpdateCenter(int id, AdminUpdateCenterDto dto)
         {
@@ -797,6 +808,7 @@ namespace graduatio_project.Controllers
         //  are separate logins the admin has to move or remove first.
         // ─────────────────────────────────────────────────────────────
 
+        // DELETE api/admin/centers/{id}: deletes a center together with its accounts.
         [HttpDelete("centers/{id:int}")]
         public async Task<IActionResult> DeleteCenter(int id)
         {
@@ -848,6 +860,7 @@ namespace graduatio_project.Controllers
         //  5. PATIENTS LIST   GET /api/admin/patients
         // ─────────────────────────────────────────────────────────────
 
+        // GET api/admin/patients: paged, filtered patient list with the computed age column.
         [HttpGet("patients")]
         public async Task<IActionResult> GetPatients(
             [FromQuery] string? search,
@@ -979,6 +992,7 @@ namespace graduatio_project.Controllers
         //  6. UPDATE PATIENT STATUS   PUT /api/admin/patients/{id}/status
         // ─────────────────────────────────────────────────────────────
 
+        // PUT api/admin/patients/{id}/status: activates, deactivates or suspends a patient.
         [HttpPut("patients/{id:int}/status")]
         public async Task<IActionResult> UpdatePatientStatus(int id, UpdateStatusDto dto)
         {
@@ -1011,6 +1025,7 @@ namespace graduatio_project.Controllers
         //  needs the profile fields too.
         // ─────────────────────────────────────────────────────────────
 
+        // GET api/admin/patients/{id}: full admin profile of one patient.
         [HttpGet("patients/{id:int}")]
         public async Task<IActionResult> GetPatient(int id)
         {
@@ -1040,6 +1055,7 @@ namespace graduatio_project.Controllers
         //  6b. EDIT PATIENT   PUT /api/admin/patients/{id}
         // ─────────────────────────────────────────────────────────────
 
+        // PUT api/admin/patients/{id}: saves the admin-editable fields of a patient.
         [HttpPut("patients/{id:int}")]
         public async Task<IActionResult> UpdatePatient(int id, AdminUpdatePatientDto dto)
         {
@@ -1087,6 +1103,7 @@ namespace graduatio_project.Controllers
         //  are removed in one transaction before the profile and login go.
         // ─────────────────────────────────────────────────────────────
 
+        // DELETE api/admin/patients/{id}: deletes a patient and the appointments that belong to it.
         [HttpDelete("patients/{id:int}")]
         public async Task<IActionResult> DeletePatient(int id)
         {
@@ -1132,6 +1149,7 @@ namespace graduatio_project.Controllers
         //  7. PHYSIOTHERAPISTS LIST   GET /api/admin/physiotherapists
         // ─────────────────────────────────────────────────────────────
 
+        // GET api/admin/physiotherapists: paged, filtered therapist list with verification state.
         [HttpGet("physiotherapists")]
         public async Task<IActionResult> GetTherapists(
             [FromQuery] string? search,
@@ -1258,6 +1276,7 @@ namespace graduatio_project.Controllers
         //  8. CREATE THERAPIST   POST /api/admin/physiotherapists
         // ─────────────────────────────────────────────────────────────
 
+        // POST api/admin/physiotherapists: creates a therapist account inside an approved center.
         [HttpPost("physiotherapists")]
         public async Task<IActionResult> CreateTherapist(AdminCreateTherapistDto dto)
         {
@@ -1327,6 +1346,7 @@ namespace graduatio_project.Controllers
         //  9. UPDATE THERAPIST STATUS   PUT /api/admin/physiotherapists/{id}/status
         // ─────────────────────────────────────────────────────────────
 
+        // PUT api/admin/physiotherapists/{id}/status: activates, deactivates or suspends a therapist.
         [HttpPut("physiotherapists/{id:int}/status")]
         public async Task<IActionResult> UpdateTherapistStatus(int id, UpdateStatusDto dto)
         {
@@ -1366,6 +1386,7 @@ namespace graduatio_project.Controllers
         //  9a. THERAPIST DETAIL   GET /api/admin/physiotherapists/{id}
         // ─────────────────────────────────────────────────────────────
 
+        // GET api/admin/physiotherapists/{id}: full admin profile of one therapist.
         [HttpGet("physiotherapists/{id:int}")]
         public async Task<IActionResult> GetTherapist(int id)
         {
@@ -1402,6 +1423,7 @@ namespace graduatio_project.Controllers
         //  9b. EDIT THERAPIST   PUT /api/admin/physiotherapists/{id}
         // ─────────────────────────────────────────────────────────────
 
+        // PUT api/admin/physiotherapists/{id}: saves the admin-editable fields of a therapist.
         [HttpPut("physiotherapists/{id:int}")]
         public async Task<IActionResult> UpdateTherapist(int id, AdminUpdateTherapistDto dto)
         {
@@ -1459,6 +1481,7 @@ namespace graduatio_project.Controllers
         //  9c. DELETE THERAPIST   DELETE /api/admin/physiotherapists/{id}
         // ─────────────────────────────────────────────────────────────
 
+        // DELETE api/admin/physiotherapists/{id}: deletes a therapist together with their schedule.
         [HttpDelete("physiotherapists/{id:int}")]
         public async Task<IActionResult> DeleteTherapist(int id)
         {
@@ -1500,6 +1523,7 @@ namespace graduatio_project.Controllers
         //  10. APPOINTMENTS LIST   GET /api/admin/appointments
         // ─────────────────────────────────────────────────────────────
 
+        // GET api/admin/appointments: paged, filtered appointment list.
         [HttpGet("appointments")]
         public async Task<IActionResult> GetAppointments(
             [FromQuery] string? status,
@@ -1611,6 +1635,7 @@ namespace graduatio_project.Controllers
         //      Returns all centres/therapists/patients/services for form dropdowns
         // ─────────────────────────────────────────────────────────────
 
+        // GET api/admin/appointments/options: patients, therapists, services and times for the forms.
         [HttpGet("appointments/options")]
         public async Task<IActionResult> GetAppointmentOptions()
         {
@@ -1687,6 +1712,7 @@ namespace graduatio_project.Controllers
         //  12. CREATE APPOINTMENT   POST /api/admin/appointments
         // ─────────────────────────────────────────────────────────────
 
+        // POST api/admin/appointments: books an appointment on behalf of a patient.
         [HttpPost("appointments")]
         public async Task<IActionResult> CreateAppointment(AdminCreateAppointmentDto dto)
         {
@@ -1749,6 +1775,7 @@ namespace graduatio_project.Controllers
         //  12b. EDIT APPOINTMENT   PUT /api/admin/appointments/{id}
         // ─────────────────────────────────────────────────────────────
 
+        // PUT api/admin/appointments/{id}: reschedules, reassigns or restates one appointment.
         [HttpPut("appointments/{id:int}")]
         public async Task<IActionResult> UpdateAppointment(int id, AdminUpdateAppointmentDto dto)
         {
@@ -1847,6 +1874,7 @@ namespace graduatio_project.Controllers
         //  12c. DELETE APPOINTMENT   DELETE /api/admin/appointments/{id}
         // ─────────────────────────────────────────────────────────────
 
+        // DELETE api/admin/appointments/{id}: deletes one appointment.
         [HttpDelete("appointments/{id:int}")]
         public async Task<IActionResult> DeleteAppointment(int id)
         {
@@ -1872,6 +1900,7 @@ namespace graduatio_project.Controllers
         //  13. REVIEWS LIST   GET /api/admin/reviews
         // ─────────────────────────────────────────────────────────────
 
+        // GET api/admin/reviews: paged, filtered review list for moderation.
         [HttpGet("reviews")]
         public async Task<IActionResult> GetReviews(
             [FromQuery] string? visibility,   // all | visible | hidden
@@ -1968,6 +1997,7 @@ namespace graduatio_project.Controllers
         //  14. MODERATE REVIEW   POST /api/admin/reviews/{id}/moderate
         // ─────────────────────────────────────────────────────────────
 
+        // POST api/admin/reviews/{id}/moderate: hides, restores or removes a review.
         [HttpPost("reviews/{id:int}/moderate")]
         public async Task<IActionResult> ModerateReview(int id, ModerateReviewDto dto)
         {
@@ -2009,6 +2039,7 @@ namespace graduatio_project.Controllers
         //  Settings are stored on the Admin profile row; no separate table needed.
         // ─────────────────────────────────────────────────────────────
 
+        // GET api/admin/settings: profile, password state and switches of the signed-in admin.
         [HttpGet("settings")]
         public async Task<IActionResult> GetSettings()
         {
@@ -2045,6 +2076,7 @@ namespace graduatio_project.Controllers
         //  16. SAVE SETTINGS   PUT /api/admin/settings
         // ─────────────────────────────────────────────────────────────
 
+        // PUT api/admin/settings: saves the admin profile and notification switches.
         [HttpPut("settings")]
         public async Task<IActionResult> SaveSettings(AdminSettingsDto dto)
         {
@@ -2118,6 +2150,7 @@ namespace graduatio_project.Controllers
         //      multipart upload with the shared "file" field
         // ─────────────────────────────────────────────────────────────
 
+        // POST api/admin/settings/image: stores a new admin profile photo and returns its URL.
         [HttpPost("settings/image")]
         [RequestSizeLimit(ImageStorage.MaxBytes + 1024 * 1024)]
         public async Task<IActionResult> UploadSettingsImage(

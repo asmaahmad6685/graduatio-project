@@ -12,12 +12,14 @@ namespace graduatio_project.Services
         public static string? Pick(string? english, string? arabic)
             => string.IsNullOrWhiteSpace(english) ? arabic : english;
 
+        // Splits a comma separated column into trimmed values.
         private static List<string> SplitList(string? value)
             => string.IsNullOrWhiteSpace(value)
                 ? new List<string>()
                 : value.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
                        .ToList();
 
+        // Builds the full center payloads, including services, staff, images and hours.
         public static async Task<Dictionary<int, object>> BuildAsync(
             ApplicationDbContext context,
             IReadOnlyList<Center> centers)

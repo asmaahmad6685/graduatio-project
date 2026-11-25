@@ -22,12 +22,14 @@ namespace graduatio_project.Controllers
         private readonly ApplicationDbContext _context;
         private readonly NotificationService _notifications;
 
+        // Wires the database and the notification service used by the review queue.
         public AdminController(ApplicationDbContext context, NotificationService notifications)
         {
             _context = context;
             _notifications = notifications;
         }
 
+        // GET api/admin/center-applications: center applications, optionally filtered by status.
         [HttpGet]
         public async Task<IActionResult> GetApplications([FromQuery] string? status)
         {
@@ -46,6 +48,7 @@ namespace graduatio_project.Controllers
             return Ok(centers.Select(ApplicationDto).ToList());
         }
 
+        // GET api/admin/center-applications/{id}: one application with the data the review dialog shows.
         [HttpGet("{id:int}")]
         public async Task<IActionResult> GetApplication(int id)
         {
@@ -62,6 +65,7 @@ namespace graduatio_project.Controllers
             return Ok(ApplicationDto(center));
         }
 
+        // POST api/admin/center-applications/{id}/review: approves or rejects an application and notifies the applicant.
         [HttpPost("{id:int}/review")]
         public async Task<IActionResult> Review(int id, ReviewCenterApplicationDto dto)
         {
@@ -122,9 +126,11 @@ namespace graduatio_project.Controllers
             return Ok(ApplicationDto(tracked));
         }
 
+        // User id of the signed-in admin, or 0 when the token carries none.
         private int GetCurrentUserId()
             => CurrentUser.TryGetUserId(User, out var userId) ? userId : 0;
 
+        // Review-queue shape of one center application.
         private static object ApplicationDto(Center center) => new
         {
             id = center.CenterId.ToString(),

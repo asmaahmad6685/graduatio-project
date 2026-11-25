@@ -22,6 +22,7 @@ namespace graduatio_project.Controllers
         private readonly IWebHostEnvironment _environment;
         private readonly NotificationService _notifications;
 
+        // Wires the database, file storage and services the therapist workspace calls.
         public TherapistWorkspaceController(
             ApplicationDbContext context,
             IWebHostEnvironment environment,
@@ -47,6 +48,7 @@ namespace graduatio_project.Controllers
             return Ok(new { url });
         }
 
+        // GET api/therapist/workspace: own profile, patients, appointments and messages of the therapist.
         [HttpGet("workspace")]
         public async Task<IActionResult> GetWorkspace()
         {
@@ -229,6 +231,7 @@ namespace graduatio_project.Controllers
             });
         }
 
+        // GET api/therapist/workspace/preferences: notification switches of the therapist.
         [HttpGet("workspace/preferences")]
         public async Task<IActionResult> GetPreferences()
         {
@@ -250,6 +253,7 @@ namespace graduatio_project.Controllers
             });
         }
 
+        // PUT api/therapist/workspace/preferences: saves the notification switches of the therapist.
         [HttpPut("workspace/preferences")]
         public async Task<IActionResult> UpdatePreferences(DTOs.Patient.UpdatePreferencesDto dto)
         {

@@ -195,6 +195,7 @@ namespace graduatio_project.Controllers
 
         }
 
+        // True when the therapist and their login account are both still active.
         private async Task<bool> IsEligibleAsync(Therapist therapist)
         {
             if (!therapist.IsActive || !await _context.Users

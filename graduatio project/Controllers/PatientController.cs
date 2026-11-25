@@ -38,6 +38,7 @@ namespace graduatio_project.Controllers
         private readonly ApplicationDbContext _context;
         private readonly IWebHostEnvironment _environment;
 
+        // Wires the database and the file storage used by the account endpoints.
         public PatientController(ApplicationDbContext context, IWebHostEnvironment environment)
         {
             _context = context;
@@ -328,6 +329,7 @@ namespace graduatio_project.Controllers
             });
         }
 
+        // GET api/patient/account: patient profile together with the notification switches.
         [HttpGet("account")]
         public async Task<IActionResult> GetAccount()
         {
@@ -345,6 +347,7 @@ namespace graduatio_project.Controllers
             });
         }
 
+        // PUT api/patient/account/profile: saves the editable patient profile fields.
         [HttpPut("account/profile")]
         public async Task<IActionResult> UpdateProfile(UpdateProfileDto dto)
         {
@@ -397,6 +400,7 @@ namespace graduatio_project.Controllers
             return Ok(new { profile = ProfileDto(patient, user) });
         }
 
+        // PUT api/patient/account/preferences: saves the notification switches of the patient.
         [HttpPut("account/preferences")]
         public async Task<IActionResult> UpdatePreferences(UpdatePreferencesDto dto)
         {
@@ -506,6 +510,7 @@ namespace graduatio_project.Controllers
             });
         }
 
+        // GET api/patient/saved-centers: centers the patient saved as favourites.
         [HttpGet("saved-centers")]
         public async Task<IActionResult> GetSavedCenters()
         {
@@ -544,6 +549,7 @@ namespace graduatio_project.Controllers
             return Ok(saved);
         }
 
+        // PUT api/patient/saved-centers/{centerId}: adds one center to the saved centers.
         [HttpPut("saved-centers/{centerId:int}")]
         public async Task<IActionResult> SaveCenter(int centerId)
         {
@@ -599,6 +605,7 @@ namespace graduatio_project.Controllers
             return Ok(new { centerId = centerId.ToString(), isSaved = true });
         }
 
+        // DELETE api/patient/saved-centers/{centerId}: removes one center from the saved centers.
         [HttpDelete("saved-centers/{centerId:int}")]
         public async Task<IActionResult> RemoveSavedCenter(int centerId)
         {
@@ -639,6 +646,7 @@ namespace graduatio_project.Controllers
             return (patient, user, null);
         }
 
+        // Account-page shape of the patient profile.
         private static object ProfileDto(Patient patient, User user) => new
         {
             id = patient.PatientId.ToString(),
@@ -652,6 +660,7 @@ namespace graduatio_project.Controllers
             status = user.IsActive ? "active" : "inactive"
         };
 
+        // Notification switches with the project defaults filled in.
         private static object PreferencesDto(NotificationPreference? preferences) => new
         {
             emailEnabled = preferences?.EmailEnabled ?? true,

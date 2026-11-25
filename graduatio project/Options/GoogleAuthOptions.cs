@@ -10,6 +10,7 @@ namespace graduatio_project.Options
 
         public string WebClientId { get; set; } = string.Empty;
 
+        // True when a plausible Google web client id is configured.
         public bool HasValidWebClientId()
         {
             return !string.IsNullOrWhiteSpace(WebClientId)

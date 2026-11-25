@@ -29,6 +29,7 @@ namespace graduatio_project.DTOs.Service
         [Range(1, int.MaxValue)]
         public int? SpecialtyId { get; set; }
 
+        // Rejects a price with more than two decimals.
         public IEnumerable<ValidationResult> Validate(ValidationContext validationContext)
         {
             if (Price.HasValue && decimal.Round(Price.Value, 2) != Price.Value)

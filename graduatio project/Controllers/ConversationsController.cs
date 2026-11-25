@@ -26,6 +26,7 @@ namespace graduatio_project.Controllers
         private readonly IHubContext<MessagingHub> _hub;
         private readonly NotificationService _notifications;
 
+        // Wires the database, the realtime hub and the notification service.
         public ConversationsController(ApplicationDbContext context,
             IHubContext<MessagingHub> hub,
             NotificationService notifications)
@@ -181,6 +182,7 @@ namespace graduatio_project.Controllers
             return Ok(new { messages = result });
         }
 
+        // POST api/conversations/{id}/messages: stores a message and pushes it to the other participant.
         [HttpPost("{id:int}/messages")]
         public async Task<IActionResult> SendMessage(int id, SendMessageDto dto)
         {
@@ -313,6 +315,7 @@ namespace graduatio_project.Controllers
             return userIds;
         }
 
+        // Sends an in-app notification to the other side of a conversation.
         private async Task NotifyConversationAsync(Conversation conversation, string type)
         {
             try

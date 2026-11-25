@@ -28,6 +28,7 @@ namespace graduatio_project.DTOs.Patient
         [MaxLength(100)]
         public string? City { get; set; }
 
+        // Rejects a birth date that is in the future.
         public IEnumerable<ValidationResult> Validate(ValidationContext validationContext)
         {
             // Use UTC consistently with the project's existing date/time handling.

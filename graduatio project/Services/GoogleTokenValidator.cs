@@ -15,6 +15,7 @@ namespace graduatio_project.Services
         private readonly GoogleAuthOptions _options;
         private readonly GoogleNonceStore _nonces;
 
+        // Wires the Google options and the challenge store used for validation.
         public GoogleTokenValidator(IOptions<GoogleAuthOptions> options, GoogleNonceStore nonces)
         {
             _options = options.Value;
